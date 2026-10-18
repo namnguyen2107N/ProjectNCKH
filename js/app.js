@@ -13,6 +13,16 @@ class AppController {
     this.init();
   }
 
+  escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[char]));
+  }
+
   init() {
     // 1. Initialize retro pixel art splash screen
     this.initSplashScreen();
@@ -645,7 +655,7 @@ class AppController {
               <span class="badge-avatar">🧑‍🎓</span>
               <div>
                 <div class="badge-role">${t('student_tag_title')}</div>
-                <div class="badge-name">${this.currentStudent} ✏️</div>
+                <div class="badge-name">${this.escapeHtml(this.currentStudent)} ✏️</div>
               </div>
             </div>
             <button type="button" class="journal-hub-button" id="btn-open-learning-journal">
