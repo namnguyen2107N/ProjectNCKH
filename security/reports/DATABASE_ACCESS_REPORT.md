@@ -1,6 +1,8 @@
 # Database Access Security Report
 
-## Status: PASS (N/A)
+> **Update 2026-10-26:** Neon Postgres is now used for auth/access tracking. It is accessed only from Vercel Functions through a pooled server-side connection; no database credentials or client SDK are shipped to the browser. See [AUTH_IMPLEMENTATION_REPORT.md](AUTH_IMPLEMENTATION_REPORT.md).
+
+## Status: PASS (N/A — pre-auth baseline)
 
 ## Findings
 

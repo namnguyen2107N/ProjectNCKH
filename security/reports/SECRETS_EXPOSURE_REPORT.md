@@ -1,6 +1,8 @@
 # Secrets Exposure Security Report
 
-## Status: MEDIUM (Fixed to PASS)
+> **Update 2026-10-26:** database/auth secrets live in Vercel environment variables; `.env*` is git-ignored and `.vercelignore` excludes local scripts/docs/schema. See [AUTH_IMPLEMENTATION_REPORT.md](AUTH_IMPLEMENTATION_REPORT.md).
+
+## Status: MEDIUM (Fixed to PASS — pre-auth baseline)
 
 ## Findings
 

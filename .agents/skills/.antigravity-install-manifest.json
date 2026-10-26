@@ -15,6 +15,7 @@
     "uxui-principles",
     "wcag-audit-patterns",
     "web-design-guidelines",
-    "vibe-check"
+    "vibe-check",
+    "karpathy-guidelines"
   ]
 }

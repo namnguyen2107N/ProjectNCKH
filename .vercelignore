@@ -1,0 +1,14 @@
+# Files that should not be uploaded to the public Vercel deployment.
+# Runtime code lives in api/ and lib/; static frontend lives at the repo root.
+.agents/
+.github/
+docs/
+security/
+scripts/
+tests/
+db/
+test-*.js
+serve.js
+*.md
+.env
+.env.*

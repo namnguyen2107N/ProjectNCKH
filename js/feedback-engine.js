@@ -53,12 +53,18 @@
       const reflectionText = events.find(e => e.code === 'TASK_REFLECTION')?.data?.reflection || '';
 
       const taskId = session.taskId || 'task1-reach';
+      // Names are rendered inside the feedback modal HTML; strip tag delimiters
+      // so a locally edited name cannot inject markup.
+      const safeStudentName = String(session.studentName || 'Học sinh')
+        .replace(/[<>]/g, '')
+        .trim()
+        .slice(0, 50) || 'Học sinh';
 
       return {
         // Raw Metrics for Grounding
         metrics: {
           taskId,
-          studentName: session.studentName || 'Học sinh',
+          studentName: safeStudentName,
           totalAttempts,
           totalTimeSec,
           vocabWords,
@@ -106,7 +112,7 @@
         parent: this.buildParentFeedback({
           isVi,
           taskId,
-          studentName: session.studentName || 'Con',
+          studentName: safeStudentName,
           totalAttempts,
           vocabWords,
           hintsCount: hintsOpened.length

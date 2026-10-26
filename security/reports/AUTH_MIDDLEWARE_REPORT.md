@@ -1,6 +1,8 @@
 # Auth Middleware Security Report
 
-## Status: PASS (N/A)
+> **Update 2026-10-26:** the app now has server-side auth: session cookies, role checks, CSRF, rate limiting and per-class scoping. See [AUTH_IMPLEMENTATION_REPORT.md](AUTH_IMPLEMENTATION_REPORT.md) and `docs/auth-setup.md`.
+
+## Status: PASS (N/A — pre-auth baseline)
 
 ## Findings
 

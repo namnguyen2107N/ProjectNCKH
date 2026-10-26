@@ -185,9 +185,8 @@ class AppController {
     if (modalSoundBtn) {
       modalSoundBtn.addEventListener('click', () => {
         if (window.SoundFX) {
-          const isMuted = window.SoundFX.toggleMute();
+          window.SoundFX.toggleMute();
           this.syncSettingsModalContent();
-          if (typeof window.syncSoundUI === 'function') window.syncSoundUI(isMuted);
         }
       });
     }
@@ -782,6 +781,22 @@ class AppController {
 }
 
 // Global bootstrap
+// When the auth gate is present, wait until it has a valid session (or the
+// student has just logged in) before initializing the app. Unit tests that
+// load this file without auth.js still boot normally.
 document.addEventListener('DOMContentLoaded', () => {
-  window.App = new AppController();
+  const start = () => {
+    window.App = new AppController();
+  };
+
+  if (window.RML_AUTH_REQUIRED && !window.RMLAuth) {
+    console.error('Auth gate failed to load; refusing to start the app.');
+    return;
+  }
+
+  if (window.RMLAuth && window.RMLAuth.ready) {
+    window.RMLAuth.ready.then(start);
+  } else {
+    start();
+  }
 });

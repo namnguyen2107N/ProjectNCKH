@@ -1,6 +1,8 @@
 # Access Control Security Report
 
-## Status: PASS (N/A)
+> **Update 2026-10-26:** roles `student`, `teacher`, `admin` are enforced server-side; teachers only see their own classes. See [AUTH_IMPLEMENTATION_REPORT.md](AUTH_IMPLEMENTATION_REPORT.md).
+
+## Status: PASS (N/A — pre-auth baseline)
 
 ## Findings
 

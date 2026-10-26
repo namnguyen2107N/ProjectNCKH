@@ -35,6 +35,7 @@ class LogEngine {
     const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     this.currentSession = {
       sessionId,
+      accountId: window.RMLAuth?.account?.id || null,
       studentName: studentName.trim() || 'Anonymous Student',
       taskId,
       taskTitle,
@@ -210,7 +211,8 @@ class LogEngine {
       } else {
         allSessions.push(this.currentSession);
       }
-      localStorage.setItem(this.storageKey, JSON.stringify(allSessions));
+      const boundedSessions = allSessions.length > 30 ? allSessions.slice(-30) : allSessions;
+      localStorage.setItem(this.storageKey, JSON.stringify(boundedSessions));
     } catch (e) {
       console.error('Failed to save log session to localStorage:', e);
     }
@@ -231,6 +233,18 @@ class LogEngine {
   }
 
   /**
+   * Sessions visible to the signed-in account. Legacy sessions without an
+   * accountId are hidden once the student signs in so that a shared classroom
+   * device does not expose another child's journal.
+   */
+  getVisibleSessions() {
+    const all = this.getAllSessions();
+    const accountId = window.RMLAuth?.account?.id;
+    if (!accountId) return all;
+    return all.filter(session => session && session.accountId === accountId);
+  }
+
+  /**
    * Open a local, student-friendly view of saved interaction sessions.
    */
   openJournal(sessionId = null) {
@@ -240,7 +254,7 @@ class LogEngine {
         currentStep: this.currentSession.currentStep
       });
     }
-    const allSessions = this.getAllSessions();
+    const allSessions = this.getVisibleSessions();
     const sessions = Array.isArray(allSessions)
       ? allSessions.filter(session => session && session.sessionId)
       : [];
@@ -281,7 +295,7 @@ class LogEngine {
     const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, char => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     })[char]);
-    const allSessions = this.getAllSessions();
+    const allSessions = this.getVisibleSessions();
     const sessions = Array.isArray(allSessions)
       ? allSessions.filter(session => session && session.sessionId)
       : [];

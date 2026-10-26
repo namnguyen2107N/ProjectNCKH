@@ -2,6 +2,8 @@
 
 Date: 2026-10-18
 
+> **Update 2026-10-26:** this summary describes the pre-auth static build. Robot Math Lab now has Vercel Functions + Neon Postgres authentication, sessions, rate limiting, CSRF and an admin dashboard. See [AUTH_IMPLEMENTATION_REPORT.md](reports/AUTH_IMPLEMENTATION_REPORT.md) and `docs/auth-setup.md`. Statements below such as “no database”, “no accounts” and “no passwords” are superseded.
+
 ## Overview
 
 This security audit was conducted against the **Robot Math Lab** project codebase following the **vibe-check** 17-category security framework.

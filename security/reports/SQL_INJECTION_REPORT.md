@@ -1,6 +1,8 @@
 # SQL Injection Security Report
 
-## Status: PASS (N/A)
+> **Update 2026-10-26:** database access now uses tagged-template parameters from the `postgres` library; user input is never concatenated into SQL. See [AUTH_IMPLEMENTATION_REPORT.md](AUTH_IMPLEMENTATION_REPORT.md).
+
+## Status: PASS (N/A — pre-auth baseline)
 
 ## Findings
 

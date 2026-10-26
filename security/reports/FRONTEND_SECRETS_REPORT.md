@@ -1,5 +1,7 @@
 # Frontend Secrets Security Report
 
+> **Update 2026-10-26:** the browser still receives no database credentials; auth and access tracking run server-side in Vercel Functions. See [AUTH_IMPLEMENTATION_REPORT.md](AUTH_IMPLEMENTATION_REPORT.md).
+
 ## Status: PASS
 
 ## Findings

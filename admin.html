@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex,nofollow" />
+  <meta name="theme-color" content="#6d5dfc" />
+  <title>Mission Control · Quản trị - Robot Math Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Quicksand:wght@500;600;700&display=swap"
+    rel="stylesheet" />
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤖</text></svg>" />
+  <link rel="stylesheet" href="css/admin.css" />
+</head>
+
+<body>
+  <div class="admin-decor" aria-hidden="true">
+    <span class="decor-star decor-star-1">⭐</span>
+    <span class="decor-star decor-star-2">✨</span>
+    <span class="decor-star decor-star-3">🌟</span>
+    <span class="decor-gear decor-gear-1">⚙️</span>
+    <span class="decor-gear decor-gear-2">⚙️</span>
+    <span class="decor-rocket">🚀</span>
+    <span class="decor-cloud">☁️</span>
+  </div>
+
+  <header class="admin-header">
+    <div class="admin-brand">
+      <span class="admin-logo" aria-hidden="true">🤖</span>
+      <div class="admin-brand-text">
+        <strong>Robot Math Lab</strong>
+        <span class="admin-brand-sub">✨ Mission Control · Bảng điều khiển lớp học</span>
+      </div>
+    </div>
+    <div class="admin-header-actions">
+      <a href="/" class="admin-nav-link">🏠 Về trang học</a>
+      <button type="button" id="admin-logout" class="admin-logout" hidden>👋 Đăng xuất</button>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <section id="admin-login" class="admin-card admin-login">
+      <div class="admin-login-mascot" aria-hidden="true">🤖</div>
+      <span class="admin-login-badge">TEACHER LOUNGE ✨</span>
+      <h1>Chào mừng thầy/cô!</h1>
+      <p>Đăng nhập để xem lớp học đang online và quản lý mã lớp cùng Sparky.</p>
+
+      <form id="admin-login-form" class="admin-login-form" novalidate>
+        <label for="admin-username">👤 Tên đăng nhập</label>
+        <input id="admin-username" name="username" autocomplete="username" placeholder="Ví dụ: admin" />
+        <label for="admin-password">🔑 Mật khẩu</label>
+        <input id="admin-password" name="password" type="password" autocomplete="current-password"
+          placeholder="••••••••" />
+        <div id="admin-login-error" class="admin-error" role="alert" hidden></div>
+        <button type="submit" class="admin-primary admin-primary--big">🚀 Vào phòng điều khiển</button>
+      </form>
+
+      <p class="admin-login-note">Chỉ dành cho giáo viên và quản trị viên.</p>
+      <a class="admin-login-back" href="/">← Về trang học</a>
+    </section>
+
+    <section id="admin-noaccess" class="admin-card admin-login admin-noaccess" hidden>
+      <div class="admin-login-mascot" aria-hidden="true">🤖</div>
+      <span class="admin-login-badge admin-login-badge--pink">OOPS! 🙈</span>
+      <h1>Khu vực dành cho giáo viên</h1>
+      <p>Tài khoản học sinh không thể xem bảng điều khiển. Thầy/cô hãy đăng nhập bằng tài khoản giáo viên hoặc quản trị
+        viên nhé!</p>
+      <a class="admin-primary admin-link-button" href="/">🏠 Về trang học</a>
+    </section>
+
+    <section id="admin-dashboard" hidden>
+      <div class="admin-hero">
+        <div class="admin-hero-copy">
+          <span class="admin-eyebrow">🤖 SPARKY MISSION CONTROL</span>
+          <h1>Bảng điều khiển lớp học</h1>
+          <p id="admin-scope">Đang tải...</p>
+          <div class="admin-hero-chips">
+            <span class="admin-chip">📅 Hôm nay: <strong id="admin-today">—</strong></span>
+            <span class="admin-chip">💡 Theo dõi online, không chặn</span>
+          </div>
+        </div>
+        <div class="admin-hero-mascot" aria-hidden="true">
+          <span class="admin-hero-robot">🤖</span>
+          <span class="admin-hero-bubble">
+            <strong>Sparky</strong>
+            <span id="admin-sparky-line">Đang trực chiến!</span>
+          </span>
+        </div>
+      </div>
+
+      <div id="admin-alert" class="admin-alert" role="status" hidden></div>
+
+      <div class="admin-stats">
+        <article class="admin-stat admin-stat--online">
+          <div class="admin-stat-icon" aria-hidden="true">🟢</div>
+          <div class="admin-stat-body">
+            <span>Đang online</span>
+            <strong id="admin-online">0</strong>
+            <small>cập nhật mỗi 30 giây</small>
+          </div>
+        </article>
+        <article class="admin-stat admin-stat--peak">
+          <div class="admin-stat-icon" aria-hidden="true">🏆</div>
+          <div class="admin-stat-body">
+            <span>Đỉnh hôm nay</span>
+            <strong id="admin-peak">0</strong>
+            <small>toàn hệ thống</small>
+          </div>
+        </article>
+        <article class="admin-stat admin-stat--logins">
+          <div class="admin-stat-icon" aria-hidden="true">🔑</div>
+          <div class="admin-stat-body">
+            <span>Đăng nhập</span>
+            <strong id="admin-logins">0</strong>
+            <small>thành công hôm nay</small>
+          </div>
+        </article>
+        <article class="admin-stat admin-stat--failed">
+          <div class="admin-stat-icon" aria-hidden="true">🙈</div>
+          <div class="admin-stat-body">
+            <span>Đăng nhập lỗi</span>
+            <strong id="admin-failed">0</strong>
+            <small>hôm nay</small>
+          </div>
+        </article>
+        <article class="admin-stat admin-stat--accounts">
+          <div class="admin-stat-icon" aria-hidden="true">🎒</div>
+          <div class="admin-stat-body">
+            <span>Tổng tài khoản</span>
+            <strong id="admin-accounts">0</strong>
+            <small>trong phạm vi</small>
+          </div>
+        </article>
+      </div>
+
+      <div class="admin-columns">
+        <section class="admin-card">
+          <div class="admin-card-head">
+            <h2><span class="admin-card-icon">🟢</span> Đang online</h2>
+            <span id="admin-online-count" class="admin-pill">0 bạn</span>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Tên hiển thị</th>
+                  <th>Tài khoản</th>
+                  <th>Lớp</th>
+                  <th>Vai trò</th>
+                  <th>Hoạt động cuối</th>
+                </tr>
+              </thead>
+              <tbody id="admin-online-body">
+                <tr>
+                  <td colspan="5" class="admin-empty">Đang tải danh sách bạn học...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="admin-card">
+          <div class="admin-card-head">
+            <h2><span class="admin-card-icon">🏫</span> Lớp học</h2>
+            <span class="admin-pill">mã tham gia</span>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Lớp</th>
+                  <th>Mã lớp</th>
+                  <th>Tài khoản</th>
+                  <th>Online</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="admin-classes-body">
+                <tr>
+                  <td colspan="5" class="admin-empty">Đang tải lớp học...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <section class="admin-card admin-create-card">
+        <div class="admin-card-head">
+          <h2><span class="admin-card-icon">➕</span> Tạo lớp mới</h2>
+          <span class="admin-pill admin-pill--green">chia sẻ mã cho học sinh</span>
+        </div>
+        <p class="admin-create-hint">Đặt tên thật dễ thương cho lớp, hệ thống sẽ tạo mã tham gia ngẫu nhiên cho các bạn
+          học sinh.</p>
+        <form id="admin-create-class-form" class="admin-form-row">
+          <div>
+            <label for="admin-class-name">Tên lớp</label>
+            <input id="admin-class-name" name="name" placeholder="Ví dụ: Lớp 4A - Phi hành gia nhí" maxlength="100" />
+          </div>
+          <div>
+            <label for="admin-class-code">Mã lớp (tùy chọn)</label>
+            <input id="admin-class-code" name="join_code" placeholder="Để trống để Sparky tự sinh" maxlength="12" />
+          </div>
+          <button type="submit" class="admin-primary admin-primary--green">🏫 Tạo lớp</button>
+        </form>
+        <div id="admin-class-result" class="admin-class-result" role="status" hidden></div>
+      </section>
+
+      <p class="admin-footnote">
+        Số liệu online dựa trên heartbeat của trình duyệt trong 2 phút gần nhất.
+        Ngưỡng cảnh báo hiện tại: <strong id="admin-threshold">100</strong> người.
+      </p>
+    </section>
+  </main>
+
+  <footer class="admin-footer">
+    Made with 💜 by Sparky · Robot Math Lab · Hanoi National University of Education · 2026
+  </footer>
+
+  <script src="js/admin.js"></script>
+</body>
+
+</html>

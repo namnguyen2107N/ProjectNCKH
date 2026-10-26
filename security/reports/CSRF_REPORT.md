@@ -1,6 +1,8 @@
 # Cross-Site Request Forgery (CSRF) Security Report
 
-## Status: PASS (N/A)
+> **Update 2026-10-26:** public POSTs check same-origin; authenticated mutations require an `X-CSRF-Token` stored server-side. See [AUTH_IMPLEMENTATION_REPORT.md](AUTH_IMPLEMENTATION_REPORT.md).
+
+## Status: PASS (N/A — pre-auth baseline)
 
 ## Findings
 

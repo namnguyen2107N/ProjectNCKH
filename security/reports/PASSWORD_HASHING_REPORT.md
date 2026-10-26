@@ -1,6 +1,8 @@
 # Password Hashing Security Report
 
-## Status: PASS (N/A)
+> **Update 2026-10-26:** students now have username/password accounts. Passwords are hashed with `scrypt` (N=16384, r=8, p=1), a random salt and constant-time verification. See [AUTH_IMPLEMENTATION_REPORT.md](AUTH_IMPLEMENTATION_REPORT.md).
+
+## Status: PASS (N/A — pre-auth baseline)
 
 ## Findings
 

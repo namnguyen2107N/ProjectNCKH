@@ -1,6 +1,8 @@
 # Rate Limiting Security Report
 
-## Status: PASS (N/A)
+> **Update 2026-10-26:** login, registration and heartbeat endpoints now use Postgres fixed-window rate limits, including per-username login limits. See [AUTH_IMPLEMENTATION_REPORT.md](AUTH_IMPLEMENTATION_REPORT.md).
+
+## Status: PASS (N/A — pre-auth baseline)
 
 ## Findings
 
