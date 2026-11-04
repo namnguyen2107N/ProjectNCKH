@@ -1,0 +1,392 @@
+/* Robot Math Lab - auth gate + account panel */
+
+html.rml-auth-pending,
+html.rml-auth-pending body {
+  overflow: hidden !important;
+}
+
+body.rml-auth-locked {
+  overflow: hidden !important;
+}
+
+.rml-auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  overflow-y: auto;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(79, 70, 229, 0.30), transparent 58%),
+    #0f172a;
+  font-family: 'Be Vietnam Pro', 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: #0f172a;
+}
+
+.rml-auth-overlay * {
+  box-sizing: border-box;
+}
+
+.rml-auth-overlay [hidden] {
+  display: none !important;
+}
+
+.rml-auth-card {
+  width: min(100%, 470px);
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  padding: 28px;
+  border-radius: 24px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow:
+    0 24px 60px rgba(2, 6, 23, 0.32),
+    0 2px 0 rgba(255, 255, 255, 0.7) inset;
+  animation: rml-auth-in 220ms ease-out both;
+}
+
+@keyframes rml-auth-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.rml-auth-loading,
+.rml-auth-fatal {
+  text-align: center;
+  padding: 48px 28px;
+}
+
+.rml-auth-fatal h1 {
+  margin: 12px 0 8px;
+  font-size: 1.5rem;
+}
+
+.rml-auth-error-text {
+  margin: 0 0 20px;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.rml-auth-spinner {
+  width: 42px;
+  height: 42px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  border: 4px solid #dbeafe;
+  border-top-color: #2563eb;
+  animation: rml-auth-spin 0.8s linear infinite;
+}
+
+@keyframes rml-auth-spin {
+  to { transform: rotate(360deg); }
+}
+
+.rml-auth-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.rml-auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rml-auth-brand strong {
+  display: block;
+  font-family: 'Baloo 2', 'Be Vietnam Pro', sans-serif;
+  font-size: 1.18rem;
+  line-height: 1.1;
+  letter-spacing: 0.2px;
+}
+
+.rml-auth-kicker {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #2563eb;
+}
+
+.rml-auth-robot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  flex: 0 0 auto;
+  border-radius: 18px;
+  font-size: 1.9rem;
+  background: #eef2ff;
+  border: 2px solid #c7d2fe;
+  box-shadow: inset 0 -4px 0 rgba(79, 70, 229, 0.10);
+}
+
+.rml-auth-lang {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.rml-auth-lang:hover {
+  background: #eef2ff;
+  border-color: #a5b4fc;
+}
+
+.rml-auth-card h1 {
+  margin: 0 0 6px;
+  font-family: 'Baloo 2', 'Be Vietnam Pro', sans-serif;
+  font-size: clamp(1.4rem, 4vw, 1.75rem);
+  line-height: 1.2;
+  color: #0f172a;
+  text-wrap: balance;
+}
+
+.rml-auth-subtitle {
+  margin: 0 0 20px;
+  color: #64748b;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.rml-auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 5px;
+  margin-bottom: 20px;
+  border-radius: 16px;
+  background: #f1f5f9;
+}
+
+.rml-auth-tab {
+  padding: 10px 8px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #64748b;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.rml-auth-tab.active {
+  background: #ffffff;
+  color: #1d4ed8;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1);
+}
+
+.rml-auth-form {
+  display: grid;
+  gap: 14px;
+}
+
+.rml-auth-field {
+  display: grid;
+  gap: 6px;
+}
+
+.rml-auth-field label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #334155;
+  letter-spacing: 0.01em;
+}
+
+.rml-auth-field small {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.rml-auth-field input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 13px;
+  border: 1.5px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  font: inherit;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+.rml-auth-field input:focus {
+  border-color: #3b82f6;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.14);
+}
+
+.rml-auth-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 13px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #713f12;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.rml-auth-consent input {
+  width: 17px;
+  height: 17px;
+  margin: 2px 0 0;
+  flex: 0 0 auto;
+  accent-color: #2563eb;
+}
+
+.rml-auth-error {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.rml-auth-submit {
+  width: 100%;
+  padding: 13px 16px;
+  border: 0;
+  border-radius: 14px;
+  background: #2563eb;
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: 0 4px 0 #1e40af;
+  transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+
+.rml-auth-submit:hover:not(:disabled) {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 0 #1e3a8a;
+}
+
+.rml-auth-submit:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 2px 0 #1e3a8a;
+}
+
+.rml-auth-submit:focus-visible,
+.rml-auth-lang:focus-visible,
+.rml-auth-tab:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+.rml-auth-submit:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.rml-auth-note,
+.rml-auth-privacy {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.7rem;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.rml-auth-note {
+  margin-top: -4px;
+}
+
+.rml-auth-privacy {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+/* Account row inside the existing settings modal */
+.rml-account-panel {
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+#rml-account-error {
+  flex: 1 1 100%;
+  margin-top: 6px;
+}
+
+.rml-account-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+@media (max-width: 520px) {
+  .rml-auth-overlay {
+    padding: 12px;
+    align-items: flex-start;
+  }
+
+  .rml-auth-card {
+    max-height: none;
+    padding: 22px 18px;
+    border-radius: 22px;
+  }
+
+  .rml-auth-robot {
+    width: 46px;
+    height: 46px;
+    font-size: 1.6rem;
+    border-radius: 15px;
+  }
+
+  .rml-account-panel {
+    align-items: flex-start;
+  }
+
+  .rml-account-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rml-auth-card {
+    animation: none;
+  }
+
+  .rml-auth-spinner {
+    animation-duration: 1.8s;
+  }
+
+  .rml-auth-submit,
+  .rml-auth-tab,
+  .rml-auth-lang {
+    transition: none;
+  }
+}

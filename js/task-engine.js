@@ -11,7 +11,10 @@ class TaskEngine {
     this.taskConfig = null;
     this.polya = null;
     this.sim = null;
+    this._openTrackPromise = null;
+    this._openTrackToken = 0;
     this.attemptCount = 0;
+    this.lastRunResult = null;
     this.trackReturnContext = 'step3';
     this.studentInputs = {
       step1: {},
@@ -58,10 +61,17 @@ class TaskEngine {
           validTime: Number.isFinite(time)
         });
       }
-      alert(t('s3_val_error'));
+      const errorBox = document.getElementById('s3-error-box');
+      if (errorBox) {
+        errorBox.innerText = t('s3_val_error');
+        errorBox.classList.remove('hidden');
+      }
       return;
     }
 
+    const errorBox = document.getElementById('s3-error-box');
+    if (errorBox) errorBox.classList.add('hidden');
+    this.lastRunResult = null;
     this.studentInputs.step3 = { speed, time };
     this.openTrackView('step3');
   }
@@ -71,7 +81,11 @@ class TaskEngine {
     const time = this.studentInputs.step3.time;
     if (!Number.isFinite(speed) || speed <= 0 || !Number.isFinite(time) || time <= 0) {
       const t = (key, params) => window.I18N ? window.I18N.t(key, params) : key;
-      alert(t('s3_val_error'));
+      const status = document.getElementById('sim-status-box');
+      if (status) {
+        status.classList.add('is-error');
+        status.innerText = t('s3_val_error');
+      }
       return;
     }
 
@@ -92,8 +106,16 @@ class TaskEngine {
    * Load and initialize a task
    */
   loadTask(taskConfig, studentName = 'Student') {
+    if (this.sim) {
+      this.sim.destroy();
+      this.sim = null;
+    }
+    this._openTrackPromise = null;
+    this._openTrackToken += 1;
+
     this.taskConfig = taskConfig;
     this.attemptCount = 0;
+    this.lastRunResult = null;
     this.trackReturnContext = 'step3';
     this.studentInputs = { step1: {}, step2: {}, step3: {}, step4: {} };
 
@@ -115,8 +137,98 @@ class TaskEngine {
     });
 
     this.renderLayout();
-    this.initSimulation();
+    this.preloadSimulation();
     this.polya.start();
+  }
+
+  /**
+   * Warm up the optional 3D renderer while the student is still solving steps.
+   * The 2D canvas remains available as the fallback.
+   */
+  preloadSimulation() {
+    if (!window.RML3D || !window.RML3D.enabled) return;
+    const load = () => {
+      window.RML3D.load().catch(() => {
+        // Fallback to 2D is handled when the track opens.
+      });
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      window.requestIdleCallback(load, { timeout: 2500 });
+    } else {
+      setTimeout(load, 900);
+    }
+  }
+
+  /**
+   * Create the appropriate simulation renderer. Both engines share the same
+   * KinematicsModel and expose the same subset of the SimulationEngine API.
+   */
+  initSimulation(EngineClass = window.SimulationEngine) {
+    if (!EngineClass) return null;
+
+    if (this.sim) {
+      this.sim.destroy();
+      this.sim = null;
+    }
+
+    const task = this.taskConfig;
+    const use3D = Boolean(EngineClass.is3D);
+    const targetId = use3D ? 'canvas-container' : 'robot-canvas';
+
+    this.sim = new EngineClass(targetId, {
+      trackLengthUnits: task.trackLength,
+      unitLabel: task.unit,
+      targetDistance: task.targetDistance,
+      timeScale: task.timeScale || 1.0
+    });
+
+    this.sim.onResize = () => {
+      this.updateFlagPosition();
+    };
+
+    this.sim.onTick = (elapsedSeconds, robots) => {
+      const bot = (robots && robots[0]) || this.sim?.robots?.[0];
+      if (!bot) return;
+      const distEl = document.getElementById('disp-dist');
+      const speedEl = document.getElementById('disp-speed');
+      const timeEl = document.getElementById('disp-time');
+      const elapsed = Number.isFinite(elapsedSeconds) ? elapsedSeconds : this.sim.elapsedSimTime;
+      if (distEl) distEl.innerText = `${bot.position.toFixed(1)} ${task.unit}`;
+      if (speedEl) speedEl.innerText = `${bot.velocity.toFixed(1)} ${task.speedUnit}`;
+      if (timeEl) timeEl.innerText = `${elapsed.toFixed(1)} ${task.timeUnit}`;
+    };
+
+    this.sim.onFatal = () => {
+      this.handleSimulationFatal();
+    };
+
+    this.sim.setRobots([{
+      id: 'main_bot',
+      name: 'Alpha Bot',
+      color: '#4f46e5',
+      velocity: task.robotSpeed,
+      startPosUnits: 0,
+      targetUnits: task.targetDistance
+    }]);
+
+    this.updateCameraUI();
+    return this.sim;
+  }
+
+  handleSimulationFatal() {
+    if (!this.sim || !this.sim.is3D) return;
+    const status = document.getElementById('sim-status-box');
+    if (status) {
+      status.innerText = window.I18N
+        ? window.I18N.t('track_3d_fallback')
+        : '3D is unavailable — using the 2D track.';
+    }
+    try {
+      this.sim.destroy();
+    } catch (_) { /* noop */ }
+    this.sim = null;
+    this.initSimulation(window.SimulationEngine);
+    this.updateTrackViewUI();
   }
 
   /**
@@ -233,12 +345,35 @@ class TaskEngine {
               </div>
             </div>
 
+            <!-- 3D camera switcher (hidden when the 2D fallback is active) -->
+            <div class="track-camera-bar hidden" id="track-camera-bar" role="group" aria-label="${t('track_camera_label')}">
+              <span class="track-camera-title" id="track-camera-title">🎥 ${t('track_camera_label')}</span>
+              <button type="button" class="track-camera-btn active" id="btn-camera-overview" aria-pressed="true">
+                🌍 ${t('track_camera_overview')}
+              </button>
+              <button type="button" class="track-camera-btn" id="btn-camera-follow" aria-pressed="false">
+                🤖 ${t('track_camera_follow')}
+              </button>
+              <span class="track-camera-divider" aria-hidden="true"></span>
+              <button type="button" class="track-camera-btn track-camera-icon" id="btn-camera-rotate-left"
+                title="${t('track_camera_rotate_left')}" aria-label="${t('track_camera_rotate_left')}">↺</button>
+              <button type="button" class="track-camera-btn track-camera-icon" id="btn-camera-rotate-right"
+                title="${t('track_camera_rotate_right')}" aria-label="${t('track_camera_rotate_right')}">↻</button>
+              <button type="button" class="track-camera-btn track-camera-icon" id="btn-camera-reset"
+                title="${t('track_camera_reset')}" aria-label="${t('track_camera_reset')}">⌂</button>
+              <span class="track-camera-hint" id="track-camera-hint">🖐 ${t('track_camera_drag_hint')}</span>
+            </div>
+
             <!-- Canvas Wrapper for Full-width Road Simulation -->
             <div class="canvas-wrapper track-canvas-wrapper" id="canvas-container">
               <canvas id="robot-canvas"></canvas>
-              <!-- Target destination flag overlay -->
-              <div class="track-destination-flag" id="destination-flag" title="Destination: ${task.targetDistance}m">
-                🏁 ${task.targetDistance}m
+              <div class="sim-3d-loading hidden" id="sim-loading-overlay" role="status" aria-live="polite">
+                <span class="sim-3d-loading-robot" aria-hidden="true">🤖</span>
+                <span>${t('track_loading_3d')}</span>
+              </div>
+              <!-- Target destination flag overlay (2D fallback) -->
+              <div class="track-destination-flag" id="destination-flag" title="Destination: ${task.targetDistance}${task.unit}">
+                🏁 ${task.targetDistance}${task.unit}
               </div>
             </div>
 
@@ -350,6 +485,17 @@ class TaskEngine {
     const trackGoStep4Btn = document.getElementById('btn-track-go-step4');
     if (trackGoStep4Btn) trackGoStep4Btn.onclick = () => this.continueFromTrack();
 
+    const cameraOverviewBtn = document.getElementById('btn-camera-overview');
+    if (cameraOverviewBtn) cameraOverviewBtn.onclick = () => this.setCameraMode('overview');
+    const cameraFollowBtn = document.getElementById('btn-camera-follow');
+    if (cameraFollowBtn) cameraFollowBtn.onclick = () => this.setCameraMode('follow');
+    const cameraRotateLeftBtn = document.getElementById('btn-camera-rotate-left');
+    if (cameraRotateLeftBtn) cameraRotateLeftBtn.onclick = () => this.rotateCamera(-1);
+    const cameraRotateRightBtn = document.getElementById('btn-camera-rotate-right');
+    if (cameraRotateRightBtn) cameraRotateRightBtn.onclick = () => this.rotateCamera(1);
+    const cameraResetBtn = document.getElementById('btn-camera-reset');
+    if (cameraResetBtn) cameraResetBtn.onclick = () => this.resetCamera();
+
   }
 
   /**
@@ -363,15 +509,60 @@ class TaskEngine {
 
     if (configView) configView.classList.add('hidden');
     trackView.classList.remove('hidden');
-
     this.updateTrackViewUI();
 
-    // Measure and resize canvas cleanly after display
-    requestAnimationFrame(() => {
-      if (this.sim) {
-        this.sim.resizeCanvas();
-        this.updateFlagPosition();
+    // Keep tests and devices without 3D synchronous: create the 2D renderer now.
+    if (this.sim) {
+      this.revealTrack();
+      return;
+    }
+    if (!window.RML3D || !window.RML3D.enabled) {
+      this.initSimulation(window.SimulationEngine);
+      this.revealTrack();
+      return;
+    }
+    this.openTrackWith3D();
+  }
+
+  async openTrackWith3D() {
+    if (this._openTrackPromise) return this._openTrackPromise;
+
+    const token = ++this._openTrackToken;
+    const loading = document.getElementById('sim-loading-overlay');
+    const runBtn = document.getElementById('btn-track-run-robot');
+    if (loading) loading.classList.remove('hidden');
+    if (runBtn) runBtn.disabled = true;
+
+    this._openTrackPromise = (async () => {
+      try {
+        const Engine3D = await window.RML3D.load();
+        if (token !== this._openTrackToken) return;
+        this.initSimulation(Engine3D || window.SimulationEngine);
+      } catch (error) {
+        if (token !== this._openTrackToken) return;
+        console.warn('3D renderer unavailable, using 2D fallback:', error?.message || error);
+        this.initSimulation(window.SimulationEngine);
+      } finally {
+        if (token === this._openTrackToken) {
+          if (loading) loading.classList.add('hidden');
+          this.updateTrackViewUI();
+          this.revealTrack();
+          this._openTrackPromise = null;
+        }
       }
+    })();
+
+    return this._openTrackPromise;
+  }
+
+  revealTrack() {
+    this.updateFlagPosition();
+    requestAnimationFrame(() => {
+      if (!this.sim) return;
+      this.sim.resizeCanvas();
+      if (this.sim.onResize) this.sim.onResize();
+      this.updateFlagPosition();
+      this.updateCameraUI();
     });
   }
 
@@ -428,6 +619,15 @@ class TaskEngine {
     const time = this.studentInputs.step3.time;
     const hasValidParameters = Number.isFinite(speed) && speed > 0 && Number.isFinite(time) && time > 0;
 
+    // A result only belongs to the parameters that produced it. Editing the
+    // plan must not leave a stale "Continue" state on the track screen.
+    if (this.lastRunResult && (
+      Number(this.lastRunResult.speed) !== Number(speed) ||
+      Number(this.lastRunResult.time) !== Number(time)
+    )) {
+      this.lastRunResult = null;
+    }
+
     // Update readout labels and values
     const lblSpeed = document.getElementById('lbl-disp-speed');
     const lblTime = document.getElementById('lbl-disp-time');
@@ -437,46 +637,225 @@ class TaskEngine {
     if (lblDist) lblDist.innerText = t('sim_dist_label');
 
     const speedDisp = document.getElementById('disp-speed');
-    const timeDisp = document.getElementById('disp-time');
-    const distDisp = document.getElementById('disp-dist');
-    if (speedDisp) speedDisp.innerText = hasValidParameters ? `${speed.toFixed(1)} ${task.speedUnit}` : `-- ${task.speedUnit}`;
-    if (timeDisp) timeDisp.innerText = `0.0 ${task.timeUnit}`;
-    if (distDisp) distDisp.innerText = `0.0 ${task.unit}`;
+    if (speedDisp) {
+      speedDisp.innerText = hasValidParameters ? `${speed.toFixed(1)} ${task.speedUnit}` : `-- ${task.speedUnit}`;
+    }
 
     // Target pill
     const targetPill = document.getElementById('track-target-pill');
     if (targetPill) targetPill.innerHTML = `🏁 ${t('sim_target_label')} <strong>${task.targetDistance} ${task.unit}</strong>`;
 
-    // Destination flag
+    // Destination flag (2D fallback only; 3D renders its own beacon)
     const flagEl = document.getElementById('destination-flag');
-    if (flagEl) flagEl.innerHTML = `🏁 ${task.targetDistance}m`;
+    if (flagEl) {
+      flagEl.innerHTML = `🏁 ${task.targetDistance}${task.unit}`;
+      flagEl.style.display = this.sim?.is3D ? 'none' : '';
+    }
 
-    // Action button visibility
     const runBtn = document.getElementById('btn-track-run-robot');
     const rerunBtn = document.getElementById('btn-track-rerun');
     const contBtn = document.getElementById('btn-track-go-step4');
     const statusBox = document.getElementById('sim-status-box');
     const resultCard = document.getElementById('track-result-card');
 
-    if (runBtn) {
-      runBtn.disabled = !hasValidParameters;
-      runBtn.innerText = t('track_btn_run');
-      runBtn.classList.remove('hidden');
-    }
-    if (rerunBtn) rerunBtn.classList.add('hidden');
-    if (contBtn) {
-      if (this.trackReturnContext === 'step4' && this.polya && this.polya.stepCompleted[3] && hasValidParameters) {
-        contBtn.classList.remove('hidden');
-        contBtn.innerText = t('track_btn_continue_step4');
-      } else {
-        contBtn.classList.add('hidden');
+    if (this.lastRunResult) {
+      // A completed run survives language changes and revisiting the track.
+      this.renderTrackResult(this.lastRunResult, false);
+    } else {
+      const timeDisp = document.getElementById('disp-time');
+      const distDisp = document.getElementById('disp-dist');
+      if (timeDisp) timeDisp.innerText = `0.0 ${task.timeUnit}`;
+      if (distDisp) distDisp.innerText = `0.0 ${task.unit}`;
+
+      if (runBtn) {
+        runBtn.disabled = !hasValidParameters;
+        runBtn.innerText = t('track_btn_run');
+        runBtn.classList.remove('hidden');
+      }
+      if (rerunBtn) rerunBtn.classList.add('hidden');
+      if (contBtn) {
+        if (this.trackReturnContext === 'step4' && this.polya && this.polya.stepCompleted[3] && hasValidParameters) {
+          contBtn.classList.remove('hidden');
+          contBtn.innerText = t('track_btn_continue_step4');
+        } else {
+          contBtn.classList.add('hidden');
+        }
+      }
+      if (statusBox) {
+        statusBox.classList.remove('is-error');
+        statusBox.innerText = hasValidParameters ? t('track_status_ready') : t('s3_val_error');
+      }
+      if (resultCard) {
+        resultCard.className = 'track-result-card hidden';
+        resultCard.innerHTML = '';
       }
     }
-    if (statusBox) statusBox.innerText = hasValidParameters ? t('track_status_ready') : t('s3_val_error');
-    if (resultCard) {
-      resultCard.classList.add('hidden');
-      resultCard.innerHTML = '';
+
+    this.updateCameraUI();
+  }
+
+  /**
+   * Render a completed run. Kept separate so language changes and Step 4
+   * revisits do not wipe the student's result.
+   */
+  renderTrackResult(result, animate = false) {
+    const task = this.taskConfig;
+    if (!task || !result) return;
+    const t = (k, p) => window.I18N ? window.I18N.t(k, p) : k;
+    const { speed, time, finalDist, targetDist, isMatch } = result;
+
+    const speedDisp = document.getElementById('disp-speed');
+    const timeDisp = document.getElementById('disp-time');
+    const distDisp = document.getElementById('disp-dist');
+    if (speedDisp) speedDisp.innerText = `${Number(speed).toFixed(1)} ${task.speedUnit}`;
+    if (timeDisp) timeDisp.innerText = `${Number(time).toFixed(1)} ${task.timeUnit}`;
+    if (distDisp) distDisp.innerText = `${Number(finalDist).toFixed(1)} ${task.unit}`;
+
+    const statusBox = document.getElementById('sim-status-box');
+    if (statusBox) {
+      statusBox.classList.remove('is-error');
+      statusBox.innerHTML = t('track_status_finished', { dist: finalDist, unit: task.unit });
     }
+
+    const resultCard = document.getElementById('track-result-card');
+    if (resultCard) {
+      resultCard.classList.remove('hidden');
+      resultCard.className = `track-result-card ${isMatch ? 'result-success' : 'result-warning'}${animate ? ' animate-fade-in' : ''}`;
+      resultCard.innerHTML = `
+        <div class="result-icon">${isMatch ? '🏆' : '⚠️'}</div>
+        <div class="result-details">
+          <div class="result-heading">${isMatch ? t('track_result_match', { dist: finalDist, unit: task.unit }) : t('track_result_mismatch', { dist: finalDist, unit: task.unit, target: targetDist })}</div>
+          <div class="result-meta">${t('s3_obs_traveled', { dist: finalDist, time })} &bull; ${t('s3_obs_target', { target: targetDist })}</div>
+        </div>
+      `;
+    }
+
+    const runBtn = document.getElementById('btn-track-run-robot');
+    const rerunBtn = document.getElementById('btn-track-rerun');
+    const contBtn = document.getElementById('btn-track-go-step4');
+    if (runBtn) {
+      runBtn.classList.add('hidden');
+      runBtn.disabled = false;
+      runBtn.innerText = t('track_btn_run');
+    }
+    if (rerunBtn) {
+      rerunBtn.classList.remove('hidden');
+      rerunBtn.innerText = t('track_btn_rerun');
+    }
+    if (contBtn) {
+      contBtn.classList.remove('hidden');
+      contBtn.innerText = t('track_btn_continue_step4');
+    }
+  }
+
+  /**
+   * Camera switcher shown only when the 3D renderer is active.
+   */
+  updateCameraUI() {
+    const bar = document.getElementById('track-camera-bar');
+    if (!bar) return;
+    const is3D = Boolean(this.sim?.is3D);
+    bar.classList.toggle('hidden', !is3D);
+    if (!is3D) return;
+
+    const t = (k, p) => window.I18N ? window.I18N.t(k, p) : k;
+    bar.setAttribute('aria-label', t('track_camera_label'));
+    const title = document.getElementById('track-camera-title');
+    if (title) title.innerText = `🎥 ${t('track_camera_label')}`;
+    const overview = document.getElementById('btn-camera-overview');
+    const follow = document.getElementById('btn-camera-follow');
+    if (overview) {
+      overview.innerText = `🌍 ${t('track_camera_overview')}`;
+      overview.classList.toggle('active', this.sim.cameraMode !== 'follow');
+      overview.setAttribute('aria-pressed', String(this.sim.cameraMode !== 'follow'));
+    }
+    if (follow) {
+      follow.innerText = `🤖 ${t('track_camera_follow')}`;
+      follow.classList.toggle('active', this.sim.cameraMode === 'follow');
+      follow.setAttribute('aria-pressed', String(this.sim.cameraMode === 'follow'));
+    }
+    const rotateLeft = document.getElementById('btn-camera-rotate-left');
+    if (rotateLeft) {
+      rotateLeft.title = t('track_camera_rotate_left');
+      rotateLeft.setAttribute('aria-label', t('track_camera_rotate_left'));
+    }
+    const rotateRight = document.getElementById('btn-camera-rotate-right');
+    if (rotateRight) {
+      rotateRight.title = t('track_camera_rotate_right');
+      rotateRight.setAttribute('aria-label', t('track_camera_rotate_right'));
+    }
+    const resetView = document.getElementById('btn-camera-reset');
+    if (resetView) {
+      resetView.title = t('track_camera_reset');
+      resetView.setAttribute('aria-label', t('track_camera_reset'));
+    }
+    const hint = document.getElementById('track-camera-hint');
+    if (hint) hint.innerText = `🖐 ${t('track_camera_drag_hint')}`;
+  }
+
+  setCameraMode(mode) {
+    if (!this.sim || !this.sim.is3D || typeof this.sim.setCameraMode !== 'function') return;
+    this.sim.setCameraMode(mode);
+    this.updateCameraUI();
+  }
+
+  rotateCamera(direction) {
+    if (!this.sim || !this.sim.is3D || typeof this.sim.rotateCamera !== 'function') return;
+    this.sim.rotateCamera(direction);
+    this.updateCameraUI();
+  }
+
+  resetCamera() {
+    if (!this.sim || !this.sim.is3D || typeof this.sim.resetCamera !== 'function') return;
+    this.sim.resetCamera();
+    this.updateCameraUI();
+  }
+
+  /**
+   * Snapshot unsaved form values before a language re-render so a student does
+   * not lose typed numbers or selected options.
+   */
+  captureStepFormState() {
+    const root = document.getElementById('workspace-config-view');
+    if (!root) return [];
+    const state = [];
+    root.querySelectorAll('input, textarea, select').forEach((el) => {
+      if (el.type === 'hidden' || el.disabled) return;
+      if (el.type === 'radio' || el.type === 'checkbox') {
+        if (el.checked) state.push({ kind: 'check', name: el.name, value: el.value });
+      } else if (el.id) {
+        state.push({ kind: 'value', id: el.id, value: el.value });
+      }
+    });
+    return state;
+  }
+
+  restoreStepFormState(state) {
+    if (!Array.isArray(state) || !state.length) return;
+    const root = document.getElementById('workspace-config-view');
+    if (!root) return;
+    const dispatch = (el, type) => {
+      if (typeof Event !== 'undefined') {
+        el.dispatchEvent(new Event(type, { bubbles: true }));
+      }
+    };
+    state.forEach((item) => {
+      if (item.kind === 'check') {
+        const radio = Array.from(root.querySelectorAll('input'))
+          .find((el) => el.name === item.name && el.value === item.value);
+        if (radio) {
+          radio.checked = true;
+          dispatch(radio, 'change');
+        }
+      } else {
+        const el = document.getElementById(item.id);
+        if (el) {
+          el.value = item.value;
+          dispatch(el, 'input');
+          dispatch(el, 'change');
+        }
+      }
+    });
   }
 
   /**
@@ -484,6 +863,7 @@ class TaskEngine {
    */
   updateLanguage() {
     if (!this.container || !this.taskConfig) return;
+    const formState = this.captureStepFormState();
     const t = (k, p) => window.I18N ? window.I18N.t(k, p) : k;
     const isVi = window.I18N ? window.I18N.isVietnamese() : false;
     const currentTitle = isVi ? (this.taskConfig.titleVi || this.taskConfig.title) : this.taskConfig.title;
@@ -531,63 +911,34 @@ class TaskEngine {
 
     // Update Track Screen elements if instantiated
     this.updateTrackViewUI();
+    if (this.sim && typeof this.sim.refreshLanguage === 'function') {
+      this.sim.refreshLanguage();
+    }
 
     // Re-render active step in config view
     if (this.polya) {
       this.renderStep(this.polya.currentStep);
+      this.restoreStepFormState(formState);
     }
-  }
-
-  /**
-   * Initialize Canvas Simulation with track length and robot
-   */
-  initSimulation() {
-    const canvas = document.getElementById('robot-canvas');
-    if (!canvas) return;
-
-    if (this.sim) {
-      this.sim.destroy();
-    }
-
-    const task = this.taskConfig;
-    this.sim = new SimulationEngine('robot-canvas', {
-      trackLengthUnits: task.trackLength,
-      unitLabel: task.unit,
-      targetDistance: task.targetDistance,
-      timeScale: task.timeScale || 1.0
-    });
-
-    this.sim.setRobots([{
-      id: 'main_bot',
-      name: 'Alpha Bot',
-      color: '#4f46e5',
-      velocity: task.robotSpeed,
-      startPosUnits: 0,
-      targetUnits: task.targetDistance
-    }]);
-
-    this.sim.onResize = () => {
-      this.updateFlagPosition();
-    };
-
-    this.sim.onTick = (state) => {
-      const bot = this.sim.robots[0];
-      if (bot) {
-        const distEl = document.getElementById('disp-dist');
-        const speedEl = document.getElementById('disp-speed');
-        const timeEl = document.getElementById('disp-time');
-        if (distEl) distEl.innerText = `${bot.position.toFixed(1)} ${task.unit}`;
-        if (speedEl) speedEl.innerText = `${bot.velocity.toFixed(1)} ${task.speedUnit}`;
-        if (timeEl) timeEl.innerText = `${this.sim.elapsedSimTime.toFixed(1)} ${task.timeUnit}`;
-      }
-    };
   }
 
   updateFlagPosition() {
     const flagEl = document.getElementById('destination-flag');
-    if (flagEl && this.sim && this.taskConfig) {
+    if (!flagEl) return;
+
+    if (this.sim?.is3D) {
+      flagEl.style.display = 'none';
+      return;
+    }
+
+    if (this.sim && this.taskConfig) {
+      flagEl.style.display = '';
       const px = this.sim.unitsToPixels(this.taskConfig.targetDistance);
       flagEl.style.left = `${px}px`;
+      const lineHeight = Math.max(80, (this.sim.height || 0) - 58);
+      if (typeof flagEl.style.setProperty === 'function') {
+        flagEl.style.setProperty('--track-flag-line-height', `${lineHeight}px`);
+      }
     }
   }
 
@@ -997,6 +1348,8 @@ class TaskEngine {
           </div>
         </div>
 
+        <div class="step-error-box hidden" id="s3-error-box" role="alert"></div>
+
         <div class="step-actions">
           <button type="button" class="btn-secondary" id="btn-back-step-2">${t('s3_btn_back')}</button>
           <button type="button" class="btn-action-run btn-open-track ${trackReadyInitially ? '' : 'hidden'}" id="btn-open-track">
@@ -1029,6 +1382,8 @@ class TaskEngine {
       return Number.isFinite(parsed) && parsed > 0 ? parsed : NaN;
     };
     const syncOpenTrackButton = () => {
+      const errorBox = document.getElementById('s3-error-box');
+      if (errorBox) errorBox.classList.add('hidden');
       const speed = resolveParameter(
         document.getElementById('param-speed-entry'),
         document.getElementById('param-speed'),
@@ -1068,6 +1423,12 @@ class TaskEngine {
     const t = (k, p) => window.I18N ? window.I18N.t(k, p) : k;
     const task = this.taskConfig;
 
+    if (!this.sim) {
+      const status = document.getElementById('sim-status-box');
+      if (status) status.innerText = t('track_loading_3d');
+      return;
+    }
+
     // The track may only run with the values explicitly submitted from Step 3.
     const speed = this.studentInputs.step3.speed;
     const time = this.studentInputs.step3.time;
@@ -1081,12 +1442,27 @@ class TaskEngine {
         });
       }
       const runBtn = document.getElementById('btn-track-run-robot');
+      const rerunBtn = document.getElementById('btn-track-rerun');
+      const contBtn = document.getElementById('btn-track-go-step4');
+      const status = document.getElementById('sim-status-box');
+      const result = document.getElementById('track-result-card');
+      this.lastRunResult = null;
       if (runBtn) runBtn.disabled = true;
-      alert(t('s3_val_error'));
+      if (rerunBtn) rerunBtn.classList.add('hidden');
+      if (contBtn) contBtn.classList.add('hidden');
+      if (result) {
+        result.className = 'track-result-card hidden';
+        result.innerHTML = '';
+      }
+      if (status) {
+        status.classList.add('is-error');
+        status.innerText = t('s3_val_error');
+      }
       return;
     }
 
     this.attemptCount++;
+    this.lastRunResult = null;
     this.studentInputs.step3 = { speed, time };
 
     // Update readout displays immediately
@@ -1110,6 +1486,7 @@ class TaskEngine {
 
     const statusBox = document.getElementById('sim-status-box');
     if (statusBox) {
+      statusBox.classList.remove('is-error');
       statusBox.innerText = t('track_status_running', {
         speed: speed.toFixed(1),
         speedUnit: task.speedUnit,
@@ -1140,56 +1517,27 @@ class TaskEngine {
       bot.target = speed * time;
     }
 
-    // Start simulation run
-    this.sim.start();
-
-    // Robot finish handler
+    // Robot finish handler (set before start to avoid a first-frame race)
     this.sim.onFinish = () => {
       const finalDist = Number((speed * time).toFixed(1));
       const targetDist = task.targetDistance;
       const discrepancy = Number((finalDist - targetDist).toFixed(1));
       const isMatch = Math.abs(discrepancy) < 0.01;
 
-      // Update observation readout
-      if (distDisp) distDisp.innerText = `${finalDist.toFixed(1)} ${task.unit}`;
-      if (timeDisp) timeDisp.innerText = `${time.toFixed(1)} ${task.timeUnit}`;
-
-      // Status text
-      if (statusBox) {
-        statusBox.innerHTML = t('track_status_finished', { dist: finalDist, unit: task.unit });
-      }
-
-      // Show Result Feedback Card on Track Screen
-      if (resultCard) {
-        resultCard.classList.remove('hidden');
-        resultCard.className = `track-result-card ${isMatch ? 'result-success' : 'result-warning'} animate-fade-in`;
-        resultCard.innerHTML = `
-          <div class="result-icon">${isMatch ? '🏆' : '⚠️'}</div>
-          <div class="result-details">
-            <div class="result-heading">${isMatch ? t('track_result_match', { dist: finalDist, unit: task.unit }) : t('track_result_mismatch', { dist: finalDist, unit: task.unit, target: targetDist })}</div>
-            <div class="result-meta">${t('s3_obs_traveled', { dist: finalDist, time })} &bull; ${t('s3_obs_target', { target: targetDist })}</div>
-          </div>
-        `;
-      }
-
-      // Controls update: show rerun and continue to step 4
-      if (runBtn) {
-        runBtn.classList.add('hidden');
-        runBtn.disabled = false;
-        runBtn.innerText = t('track_btn_run');
-      }
-      if (rerunBtn) {
-        rerunBtn.classList.remove('hidden');
-        rerunBtn.innerText = t('track_btn_rerun');
-      }
-      if (contBtn) {
-        contBtn.classList.remove('hidden');
-        contBtn.innerText = t('track_btn_continue_step4');
-      }
+      this.lastRunResult = {
+        speed,
+        time,
+        finalDist,
+        targetDist,
+        discrepancy,
+        isMatch
+      };
+      this.renderTrackResult(this.lastRunResult, true);
 
       // Audio & Mascot Feedback
       if (isMatch) {
         if (window.SoundFX) window.SoundFX.playVictory();
+        if (this.sim && typeof this.sim.celebrate === 'function') this.sim.celebrate();
         const sparkyBubble = document.getElementById('sparky-bubble');
         if (sparkyBubble) sparkyBubble.innerText = t('sparky_victory');
       } else {
@@ -1209,6 +1557,9 @@ class TaskEngine {
         });
       }
     };
+
+    // Start after onFinish is installed (works for 2D and 3D renderers).
+    this.sim.start();
   }
 
   // =========================================================================
@@ -1245,6 +1596,7 @@ class TaskEngine {
         </div>
 
         <!-- Sub-flow depending on Yes / No -->
+        <div class="step-error-box hidden" id="s4-error-box" role="alert"></div>
         <div id="lookback-subflow">
           <!-- Rendered dynamically below -->
         </div>
@@ -1347,9 +1699,15 @@ class TaskEngine {
     const observedSpeed = this.studentInputs.step3.speed;
     const observedTime = this.studentInputs.step3.time;
     if (!Number.isFinite(observedSpeed) || observedSpeed <= 0 || !Number.isFinite(observedTime) || observedTime <= 0) {
-      alert(t('s3_val_error'));
+      const errorBox = document.getElementById('s4-error-box');
+      if (errorBox) {
+        errorBox.innerText = t('s3_val_error');
+        errorBox.classList.remove('hidden');
+      }
       return;
     }
+    const errorBox = document.getElementById('s4-error-box');
+    if (errorBox) errorBox.classList.add('hidden');
 
     this.studentInputs.step4.checkResult = choice;
     const observedDistance = Number((observedSpeed * observedTime).toFixed(1));
@@ -1392,7 +1750,7 @@ class TaskEngine {
               <strong>${s4.reflectionPromptEn}</strong>
               ${isVi ? `<div class="text-muted small">${s4.reflectionPromptVi}</div>` : ''}
             </label>
-            <textarea id="input-reflection" class="input-textarea" rows="2" placeholder="${t('s4_refl_placeholder')}">${this.studentInputs.step4.reflection || ''}</textarea>
+            <textarea id="input-reflection" class="input-textarea" rows="2" placeholder="${t('s4_refl_placeholder')}"></textarea>
           </div>
         </div>
       `;
@@ -1402,6 +1760,16 @@ class TaskEngine {
           ${t('s4_btn_complete')}
         </button>
       `;
+
+      const reflectionInput = document.getElementById('input-reflection');
+      if (reflectionInput) {
+        reflectionInput.value = this.studentInputs.step4.reflection || '';
+        if (typeof reflectionInput.addEventListener === 'function') {
+          reflectionInput.addEventListener('input', () => {
+            this.studentInputs.step4.reflection = reflectionInput.value;
+          });
+        }
+      }
 
       document.getElementById('btn-complete-mission').onclick = () => {
         const refl = document.getElementById('input-reflection')?.value || '';
@@ -1517,9 +1885,23 @@ class TaskEngine {
     const revisedVal = rawRevised ? Number(rawRevised.replace(',', '.')) : NaN;
 
     if (!Number.isFinite(revisedVal) || revisedVal <= 0) {
-      alert(t('s4_input_error'));
+      const errorBox = document.getElementById('s4-error-box');
+      if (errorBox) {
+        errorBox.innerText = t('s4_input_error');
+        errorBox.classList.remove('hidden');
+      }
       return;
     }
+    if (!discId || !diagId) {
+      const errorBox = document.getElementById('s4-error-box');
+      if (errorBox) {
+        errorBox.innerText = t('s4_choice_error');
+        errorBox.classList.remove('hidden');
+      }
+      return;
+    }
+    const errorBox = document.getElementById('s4-error-box');
+    if (errorBox) errorBox.classList.add('hidden');
 
     this.studentInputs.step4.discrepancyId = discId;
     this.studentInputs.step4.diagnosisId = diagId;
