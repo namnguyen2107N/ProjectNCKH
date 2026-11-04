@@ -3,6 +3,8 @@
 
 > **Cập nhật 2026-10-26:** dự án đã chọn **Vercel Functions + Neon Postgres** thay cho PHP vì frontend đang chạy tại `robotmathlab.vercel.app` và Vercel không có runtime PHP chính thức. Xem `docs/auth-setup.md` cho phương án đang triển khai. Tài liệu này được giữ làm phương án tham khảo nếu sau này chuyển sang VPS/shared hosting PHP.
 
+> **Cập nhật 2026-11-04:** bản hiện tại đã gỡ dashboard admin và các API `/api/admin/*`. Các mục admin trong tài liệu PHP dưới đây chỉ là thiết kế lịch sử, không phải mã đang chạy.
+
 > Tài liệu này là **phương án kỹ thuật**, chưa thay đổi mã nguồn hiện tại.
 > Mục tiêu: thu thập dữ liệu phiên học tập trung, phục vụ nghiên cứu và cho phép giáo viên/nhà nghiên cứu xem, xuất dữ liệu — vẫn giữ ứng dụng hoạt động khi mất mạng.
 

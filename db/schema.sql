@@ -14,6 +14,8 @@ create table if not exists classes (
 
 create index if not exists classes_teacher_idx on classes (teacher_id);
 
+-- The current app only self-registers students. The role check keeps legacy
+-- teacher/admin values so existing databases remain valid; there is no admin UI.
 create table if not exists accounts (
   id                 bigserial primary key,
   username           text not null unique,

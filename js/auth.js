@@ -57,7 +57,6 @@
       registerBtn: 'Tạo tài khoản và vào học',
       forgot: 'Quên mật khẩu? Hãy liên hệ giáo viên để được cấp lại.',
       privacy: 'Dữ liệu được dùng để nghiên cứu quá trình học tập. Em có thể yêu cầu giáo viên xoá dữ liệu.',
-      admin: 'Quản trị',
       logout: 'Đăng xuất',
       retry: 'Thử lại',
       maintenance: 'Hệ thống đang bảo trì hoặc chưa kết nối được máy chủ. Vui lòng thử lại.',
@@ -93,7 +92,6 @@
       registerBtn: 'Create account and start',
       forgot: 'Forgot your password? Ask your teacher to reset it.',
       privacy: 'Data is used to study the learning process. You can ask your teacher to delete it.',
-      admin: 'Admin',
       logout: 'Sign out',
       retry: 'Retry',
       maintenance: 'The system is under maintenance or cannot reach the server. Please try again.',
@@ -470,7 +468,8 @@
 
     localStorage.setItem('rml_student_name', account.display_name);
     localStorage.setItem('rml_account_id', String(account.id));
-    localStorage.setItem('rml_account_role', account.role);
+    // Remove legacy role storage left by the old admin build.
+    localStorage.removeItem('rml_account_role');
 
     removeOverlay();
     if (!state.readyResolved) {
@@ -518,14 +517,6 @@
 
       const actions = document.createElement('div');
       actions.className = 'rml-account-actions';
-
-      if (state.account.role === 'admin' || state.account.role === 'teacher') {
-        const adminLink = document.createElement('a');
-        adminLink.className = 'rml-admin-link';
-        adminLink.href = '/admin.html';
-        adminLink.textContent = t.admin;
-        actions.appendChild(adminLink);
-      }
 
       const logout = document.createElement('button');
       logout.type = 'button';
@@ -583,7 +574,6 @@
 
     localStorage.removeItem('rml_student_name');
     localStorage.removeItem('rml_account_id');
-    localStorage.removeItem('rml_account_role');
     state.authenticated = false;
     location.href = '/';
   }

@@ -1,7 +1,7 @@
 # Đăng nhập, tài khoản học sinh và theo dõi truy cập
 ## Robot Math Lab — Vercel Functions + Neon Postgres
 
-> Cập nhật: 2026-10-26. Phương án này thay thế phần PHP trong `docs/backend-php-plan.md` cho môi trường Vercel hiện tại.
+> Cập nhật: 2026-11-04. Dashboard admin đã được gỡ; tài liệu này chỉ còn luồng học sinh và các API auth cần thiết. Phương án này thay thế phần PHP trong `docs/backend-php-plan.md` cho môi trường Vercel hiện tại.
 
 ---
 
@@ -17,7 +17,6 @@ Trình duyệt
    ▼
 Vercel
 ├── /                 → index.html + js/css hiện tại
-├── /admin.html       → dashboard giáo viên/quản trị
 └── /api/*            → Vercel Functions (Node.js)
                          │
                          ▼
@@ -28,7 +27,7 @@ Vercel
 - API cùng domain với frontend → cookie `HttpOnly` hoạt động đơn giản, không CORS.
 - Không cần quản trị server.
 - 100 người dùng đồng thời nằm trong khả năng thoải mái của Vercel Functions + Neon pooler.
-- Dễ mở rộng sau này (đồng bộ log học tập, quản lý giáo viên, export CSV).
+- Dễ mở rộng sau này (đồng bộ log học tập, export CSV khi cần).
 
 ---
 
@@ -42,20 +41,17 @@ Vercel
 | `lib/validate.js` | Chuẩn hoá username, tên hiển thị, mã lớp (tuỳ chọn) |
 | `lib/auth.js` | Tạo/đọc session, CSRF, cookie, phân quyền |
 | `lib/rate-limit.js` | Rate limit theo cửa sổ cố định trong Postgres |
-| `lib/metrics.js` | Đếm online, peak, phạm vi lớp của giáo viên |
+| `lib/metrics.js` | Đếm online, peak toàn hệ thống |
 | `api/auth/register.js` | Đăng ký học sinh (không bắt buộc mã lớp) |
 | `api/auth/login.js` | Đăng nhập username/mật khẩu |
 | `api/auth/me.js` | Lấy tài khoản hiện tại + CSRF token |
 | `api/auth/logout.js` | Đăng xuất, thu hồi session |
 | `api/auth/heartbeat.js` | Cập nhật hiện diện để đếm online |
-| `api/admin/stats.js` | Thống kê online/peak/login/tài khoản |
-| `api/admin/classes.js` | Tạo lớp + mã tham gia |
 | `api/health.js` | Kiểm tra API + DB |
 | `js/auth.js` | Màn hình đăng nhập/đăng ký, chặn app trước khi auth |
 | `css/auth.css` | Giao diện gate + dòng tài khoản trong Settings |
-| `admin.html`, `js/admin.js`, `css/admin.css` | Dashboard quản trị |
 | `scripts/migrate.mjs` | Chạy schema |
-| `scripts/seed.mjs` | Tạo admin + lớp demo (+ giáo viên tuỳ chọn) |
+| `scripts/seed.mjs` | Tạo (hoặc tái sử dụng) lớp demo; không tạo admin/giáo viên |
 | `tests/*.test.mjs` | Test hash mật khẩu và validation |
 
 ---
@@ -97,7 +93,6 @@ IP_HASH_PEPPER=<chuỗi-ngẫu-nhiên-32-byte>
 APP_ORIGIN=https://robotmathlab.vercel.app
 SESSION_TTL_HOURS=12
 CONSENT_VERSION=2026-10-v1
-MAX_ONLINE_ALERT=100
 ```
 
 Tạo pepper:
@@ -115,7 +110,6 @@ Trên Vercel → Project → Settings → Environment Variables, thêm các bi�
 | `APP_ORIGIN` | Nên có | `https://robotmathlab.vercel.app` |
 | `SESSION_TTL_HOURS` | Không | Mặc định 12 |
 | `CONSENT_VERSION` | Nên có | Phiên bản consent hiện tại |
-| `MAX_ONLINE_ALERT` | Không | Ngưỡng cảnh báo, mặc định 100 |
 
 Không cần đưa `DIRECT_URL` lên runtime Vercel; biến này chỉ dùng cho script local.
 
@@ -130,26 +124,18 @@ npm run db:seed
 ```
 
 `db:seed` sẽ:
-- Tạo tài khoản admin (mặc định `admin`).
-- Tạo lớp demo + mã tham gia.
-- In mật khẩu admin một lần duy nhất.
-- Tạo giáo viên nếu có `TEACHER_USERNAME` / `TEACHER_PASSWORD`.
+- Tạo mới hoặc tái sử dụng một lớp demo + mã tham gia.
+- **Không** tạo tài khoản admin/giáo viên.
+- In mã lớp nếu vừa tạo.
 
 Ví dụ kết quả:
 
 ```
-Admin created: admin / xxxxxxxxxxxx
 Class: Lớp Demo | join code: AB3K9Q
-Admin dashboard: /admin.html
+Students register at /; the class code is optional.
 ```
 
-**Lưu mật khẩu ngay.** Nếu quên:
-
-```powershell
-$env:RESET_ADMIN_PASSWORD="1"
-$env:ADMIN_PASSWORD="matkhaumoi123"
-npm run db:seed
-```
+Lớp chỉ là nhóm tài khoản tuỳ chọn. Học sinh vẫn đăng ký bình thường mà không cần mã lớp. Có thể đặt `CLASS_NAME` / `CLASS_CODE` trong `.env.local` trước khi seed nếu muốn tên/mã lớp cố định.
 
 ---
 
@@ -177,24 +163,14 @@ Kỳ vọng:
 
 Sau đó mở:
 
-- `https://robotmathlab.vercel.app/` → màn hình đăng nhập.
-- `https://robotmathlab.vercel.app/admin.html` → đăng nhập admin.
+- `https://robotmathlab.vercel.app/` → màn hình đăng nhập/đăng ký học sinh.
+- `https://robotmathlab.vercel.app/api/health` → kiểm tra API + DB.
 
 > `vercel.json` đặt function region `sin1` (Singapore). Nếu gói Vercel không hỗ trợ region này, xoá `"regions"` và deploy lại.
 
 ---
 
 ## 7. Luồng sử dụng
-
-### Quản trị viên / giáo viên
-
-1. Vào `/admin.html`, đăng nhập.
-2. (Tuỳ chọn) Tạo lớp để nhóm tài khoản và xem thống kê riêng. Học sinh hiện **không cần mã lớp** khi đăng ký.
-3. Theo dõi:
-   - Đang online (heartbeat 2 phút gần nhất).
-   - Đỉnh online trong ngày.
-   - Đăng nhập thành công / thất bại hôm nay.
-   - Tổng tài khoản, danh sách lớp, tài khoản đang online.
 
 ### Học sinh
 
@@ -203,6 +179,8 @@ Sau đó mở:
 3. Tài khoản được tạo và đăng nhập ngay; tài khoản mới chưa thuộc lớp nào.
 4. Lần sau đăng nhập bằng username/mật khẩu.
 5. Trong **Cài đặt** có thông tin tài khoản và nút **Đăng xuất**.
+
+> Dashboard admin đã được gỡ. Việc theo dõi online/peak và quản lý dữ liệu (nếu cần) thực hiện trực tiếp qua Neon SQL hoặc script vận hành.
 
 ### Quy tắc username
 
@@ -224,9 +202,9 @@ Tên hiển thị (tiếng Việt có dấu) là trường riêng, không dùng 
 | `GET` | `/api/auth/me` | session | Tài khoản + CSRF token |
 | `POST` | `/api/auth/logout` | session + CSRF | Đăng xuất |
 | `POST` | `/api/auth/heartbeat` | session + CSRF | Cập nhật online |
-| `GET` | `/api/admin/stats` | admin/teacher | Thống kê truy cập |
-| `POST` | `/api/admin/classes` | admin/teacher + CSRF | Tạo lớp |
 | `GET` | `/api/health` | public | Kiểm tra DB |
+
+Các endpoint `/api/admin/*` và dashboard admin đã được gỡ bỏ.
 
 Cookie phiên:
 - Production: `__Host-rml_session` (HttpOnly, Secure, SameSite=Lax).
@@ -245,7 +223,7 @@ CSRF:
 - Sau khi đăng nhập, trình duyệt gửi heartbeat mỗi **60 giây** (và khi tab quay lại foreground).
 - Một tài khoản được tính online nếu có session chưa thu hồi, chưa hết hạn và `last_seen_at` trong **2 phút** gần nhất.
 - `app_metrics.peak_online` lưu đỉnh theo ngày (giờ Việt Nam).
-- **Không chặn cứng** khi vượt 100; dashboard hiển thị cảnh báo theo `MAX_ONLINE_ALERT`.
+- **Không chặn cứng** khi vượt 100. Dashboard admin đã được gỡ; nếu cần xem online/peak, truy vấn `auth_sessions` hoặc `app_metrics` trực tiếp trên Neon.
 
 Với 100 người đồng thời:
 - Heartbeat: ~1.7 request/giây.
@@ -271,7 +249,7 @@ Nếu cần kiểm thử tải, dùng k6/Artillery với kịch bản:
 - IP chỉ lưu dạng hash có pepper; không lưu IP thô.
 - Học sinh không cần email/số điện thoại.
 - Consent bắt buộc khi đăng ký; lưu `consent_version` + thời điểm.
-- Dashboard chỉ trả dữ liệu trong phạm vi lớp của giáo viên; admin xem toàn bộ.
+- Không còn dashboard admin; dữ liệu truy cập chỉ xem qua SQL/script vận hành.
 - API trả lỗi generic, không lộ stack trace.
 
 > Đây là hệ thống cho trẻ em: nên có phiếu đồng thuận của phụ huynh/nhà trường và chính sách thời gian lưu dữ liệu (ví dụ 12 tháng) trước khi thu chính thức.
@@ -287,8 +265,7 @@ Nếu cần kiểm thử tải, dùng k6/Artillery với kịch bản:
 | Health check | UptimeRobot gọi `/api/health` mỗi 5 phút |
 | Dọn rate limit | Code tự xoá row cũ với xác suất 1%/request; có thể chạy SQL định kỳ |
 | Xoá tài khoản | `update accounts set status='disabled' ...` hoặc xoá cascade session |
-| Đổi mật khẩu admin | `RESET_ADMIN_PASSWORD=1 ADMIN_PASSWORD=... npm run db:seed` |
-| Reset mật khẩu học sinh/giáo viên | `npm run user:reset-password -- <username> <new-password>` (chạy local, dùng `DIRECT_URL`) |
+| Reset mật khẩu học sinh | `npm run user:reset-password -- <username> <new-password>` (chạy local, dùng `DIRECT_URL`) |
 
 ---
 
@@ -297,9 +274,8 @@ Nếu cần kiểm thử tải, dùng k6/Artillery với kịch bản:
 1. **Gate phía client không phải security boundary.** App tĩnh vẫn có thể tải trực tiếp, nhưng dữ liệu thật nằm sau API và yêu cầu session. Nếu cần chặn cả việc dùng app, thêm Vercel Middleware kiểm tra cookie (chỉ là lớp UX, không thay thế API auth).
 2. **Nhật ký học tập trong `localStorage` đã được lọc theo tài khoản.** Session mới có `accountId`; journal chỉ hiển thị phiên của tài khoản đang đăng nhập. Log cũ (không có `accountId`) sẽ bị ẩn sau khi đăng nhập để tránh lộ dữ liệu trên máy dùng chung. Bước tiếp theo: đồng bộ log lên server và có công cụ gán log cũ cho đúng tài khoản.
 3. **Chưa có API đồng bộ log học tập.** Schema hiện tại tập trung vào auth/access. Có thể thêm `learning_sessions` + `learning_events` và endpoint batch như phương án PHP cũ.
-4. **Chưa có UI quản lý tài khoản/giáo viên.** Hiện tạo giáo viên qua seed hoặc SQL. Có thể thêm `api/admin/accounts` + màn hình quản lý.
-5. **Chưa có reset mật khẩu tự phục vụ.** Học sinh quên mật khẩu → giáo viên/admin chạy `npm run user:reset-password -- <username> <new-password>` hoặc thêm mã reset một lần trong giai đoạn sau. Lệnh này thu hồi toàn bộ session cũ của tài khoản.
-6. **Vercel Hobby** có giới hạn fair-use. Nếu trường dùng chính thức/quy mô lớn, cân nhắc Vercel Pro và theo dõi invocation/GB-hours.
+4. **Chưa có reset mật khẩu tự phục vụ.** Học sinh quên mật khẩu → người vận hành chạy `npm run user:reset-password -- <username> <new-password>` hoặc thêm mã reset một lần trong giai đoạn sau. Lệnh này thu hồi toàn bộ session cũ của tài khoản.
+5. **Vercel Hobby** có giới hạn fair-use. Nếu trường dùng chính thức/quy mô lớn, cân nhắc Vercel Pro và theo dõi invocation/GB-hours.
 
 ---
 
@@ -311,12 +287,9 @@ Nếu cần kiểm thử tải, dùng k6/Artillery với kịch bản:
 - [ ] Đăng ký thành công → vào app, header hiện đúng tên.
 - [ ] Đăng xuất → quay lại gate, không vào được app nếu chưa đăng nhập lại.
 - [ ] Sai mật khẩu 11 lần → 429.
-- [ ] Admin login → thấy online/peak/logins.
-- [ ] Tạo lớp (tuỳ chọn) → lớp xuất hiện trong dashboard (dùng cho nhóm tài khoản sau này).
-- [ ] Giáo viên chỉ thấy lớp mình; admin thấy tất cả.
-- [ ] Tắt tab 2 phút → online giảm.
+- [ ] Heartbeat cập nhật `app_metrics.peak_online`.
+- [ ] Tắt tab 2 phút → online giảm khi truy vấn `auth_sessions`.
 - [ ] Cookie có `HttpOnly`, `Secure`, `SameSite=Lax`.
-- [ ] `curl https://.../api/admin/stats` không cookie → 401.
 - [ ] `curl https://.../api/auth/register` với `Origin` lạ → 403.
 
 ---
@@ -330,7 +303,6 @@ Nếu cần kiểm thử tải, dùng k6/Artillery với kịch bản:
 | Đăng nhập xong vẫn quay lại gate | Cookie bị chặn; kiểm tra HTTPS, cùng domain, `__Host-`; xem DevTools → Application → Cookies |
 | `CSRF_INVALID` | Tab cũ sau khi session hết hạn; tải lại trang |
 | Rate limit oan cho cả lớp | Tăng giới hạn IP trong `api/auth/login.js` hoặc dùng per-username |
-| Không thấy dashboard | Tài khoản role `student`; dùng admin/teacher |
 | Seed báo thiếu biến | Chưa có `.env.local` hoặc chưa điền `DIRECT_URL` |
 
 ---

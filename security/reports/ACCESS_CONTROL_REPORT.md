@@ -1,6 +1,6 @@
 # Access Control Security Report
 
-> **Update 2026-10-26:** roles `student`, `teacher`, `admin` are enforced server-side; teachers only see their own classes. See [AUTH_IMPLEMENTATION_REPORT.md](AUTH_IMPLEMENTATION_REPORT.md).
+> **Update 2026-11-04:** student-only auth is enforced server-side; the admin dashboard and `/api/admin/*` endpoints have been removed. Legacy role values remain in the schema for compatibility. See [AUTH_IMPLEMENTATION_REPORT.md](AUTH_IMPLEMENTATION_REPORT.md).
 
 ## Status: PASS (N/A — pre-auth baseline)
 

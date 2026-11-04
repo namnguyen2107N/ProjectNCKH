@@ -330,24 +330,6 @@ body.rml-auth-locked {
   justify-content: flex-end;
 }
 
-.rml-admin-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid #bfdbfe;
-  background: #eff6ff;
-  color: #1d4ed8;
-  font-size: 0.72rem;
-  font-weight: 800;
-  text-decoration: none;
-}
-
-.rml-admin-link:hover {
-  background: #dbeafe;
-}
-
 @media (max-width: 520px) {
   .rml-auth-overlay {
     padding: 12px;
