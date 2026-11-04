@@ -93,7 +93,7 @@ robot; renderer 3D xếp robot theo làn và camera follow bám robot đầu ti�
 - Cảnh idle render khoảng 30 FPS; lúc chạy hoặc chuyển camera mới render đủ.
 - Dash trên đường đua dùng `InstancedMesh`; không dùng shadow map, không tải
   texture ngoài; robot và biển được tạo procedural.
-- Cảnh tham chiếu chỉ khoảng 53 draw call và ~4.2k triangle (task 3), rất nhẹ so
+- Cảnh tham chiếu chỉ khoảng 55–60 draw call và ~4.4k triangle (task 2/3), rất nhẹ so
   với các scene 3D thông thường.
 - Tôn trọng `prefers-reduced-motion`: tắt bob, xoay sao, nhấp nháy ring và confetti.
 

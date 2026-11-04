@@ -925,9 +925,11 @@ class Simulation3DEngine {
       const antennaLight = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), eyeMaterial.clone());
       antennaLight.position.set(0, 2.05, -0.02);
       group.add(antennaLight);
-      const antennaGlow = new THREE.PointLight(0x67e8f9, 0.55, 2.3, 2);
-      antennaGlow.position.set(0, 2.05, -0.02);
-      group.add(antennaGlow);
+      if (this._quality !== 'low') {
+        const antennaGlow = new THREE.PointLight(0x67e8f9, 0.55, 2.3, 2);
+        antennaGlow.position.set(0, 2.05, -0.02);
+        group.add(antennaGlow);
+      }
 
       const wheelMaterial = new THREE.MeshStandardMaterial({
         color: 0x1e293b,
