@@ -45,6 +45,7 @@ Vercel
 | `api/auth/register.js` | Đăng ký học sinh (không bắt buộc mã lớp) |
 | `api/auth/login.js` | Đăng nhập username/mật khẩu |
 | `api/auth/me.js` | Lấy tài khoản hiện tại + CSRF token |
+| `api/auth/profile.js` | Cập nhật tên hiển thị của tài khoản |
 | `api/auth/logout.js` | Đăng xuất, thu hồi session |
 | `api/auth/heartbeat.js` | Cập nhật hiện diện để đếm online |
 | `api/health.js` | Kiểm tra API + DB |
@@ -178,7 +179,7 @@ Sau đó mở:
 2. Nhập tên hiển thị, username, mật khẩu, tick consent.
 3. Tài khoản được tạo và đăng nhập ngay; tài khoản mới chưa thuộc lớp nào.
 4. Lần sau đăng nhập bằng username/mật khẩu.
-5. Trong **Cài đặt** có thông tin tài khoản và nút **Đăng xuất**.
+5. Trong **Cài đặt** có thông tin tài khoản, đổi tên hiển thị (lưu vào tài khoản) và nút **Đăng xuất**.
 
 > Dashboard admin đã được gỡ. Việc theo dõi online/peak và quản lý dữ liệu (nếu cần) thực hiện trực tiếp qua Neon SQL hoặc script vận hành.
 
@@ -200,6 +201,7 @@ Tên hiển thị (tiếng Việt có dấu) là trường riêng, không dùng 
 | `POST` | `/api/auth/register` | public + same-origin | Đăng ký học sinh (mã lớp không bắt buộc) |
 | `POST` | `/api/auth/login` | public + same-origin | Đăng nhập |
 | `GET` | `/api/auth/me` | session | Tài khoản + CSRF token |
+| `PATCH` | `/api/auth/profile` | session + CSRF | Cập nhật tên hiển thị |
 | `POST` | `/api/auth/logout` | session + CSRF | Đăng xuất |
 | `POST` | `/api/auth/heartbeat` | session + CSRF | Cập nhật online |
 | `GET` | `/api/health` | public | Kiểm tra DB |

@@ -4900,6 +4900,15 @@ body.view-start-screen #main-view {
   margin-top: 0.1rem;
 }
 
+.settings-name-error {
+  margin: -0.2rem 0 0.4rem;
+  padding: 0 1rem;
+  color: #b91c1c;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
 .settings-input-wrap {
   display: flex;
   align-items: center;
@@ -4947,6 +4956,12 @@ body.view-start-screen #main-view {
 .btn-settings-save-name:active {
   transform: translateY(2px);
   box-shadow: 0 1px 0 #3730a3;
+}
+
+.btn-settings-save-name:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
 }
 
 .settings-lang-pill {

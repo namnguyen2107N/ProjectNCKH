@@ -11,12 +11,21 @@
 
 (function () {
   const STORAGE_KEY = 'rml_ui_language';
+  const LEGACY_STORAGE_KEY = 'rml_language';
   let currentLang = 'en'; // Default to English as requested
   try {
-    if (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEY)) {
-      currentLang = localStorage.getItem(STORAGE_KEY);
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem(LEGACY_STORAGE_KEY) || localStorage.getItem(STORAGE_KEY);
+      if (stored === 'vi' || stored === 'en') currentLang = stored;
     }
   } catch (_) { }
+
+  function syncDocumentLanguage() {
+    if (typeof document !== 'undefined' && document.documentElement) {
+      document.documentElement.lang = currentLang;
+    }
+  }
+  syncDocumentLanguage();
 
   const translations = {
     en: {
@@ -31,40 +40,42 @@
       lang_switch_title: 'Switch Interface Language',
       settings_btn_title: 'Settings & Student Profile',
       settings_modal_title: '⚙️ Settings & Profile',
-      settings_modal_subtitle: 'Customize student info and learning environment',
+      settings_modal_subtitle: 'Name, language and sound settings',
       settings_name_label: 'Student Name:',
-      settings_name_hint: 'Displayed across your missions and certificates',
+      settings_name_hint: 'Used to greet you in the app',
       settings_name_save: 'Save',
+      settings_name_required: 'Please enter a display name.',
+      settings_name_save_failed: 'Could not save the name. Please try again.',
       settings_lang_label: 'Language:',
       settings_lang_hint: 'Switch between English and Vietnamese',
       settings_sound_label: 'Sound Effects:',
       settings_sound_hint: 'Cheerful feedback audio on actions and success',
       settings_fs_label: 'Fullscreen Mode:',
       settings_fs_hint: 'Maximize screen space for calculations',
-      settings_done_btn: 'Done & Resume Learning ✨',
+      settings_done_btn: 'Done',
 
       // Welcome Hero & Robot Signboard
-      hero_eyebrow: 'PROBLEM SOLVING & VIRTUAL ROBOTICS',
+      hero_eyebrow: 'MOTION MATH · VIRTUAL ROBOT',
       hero_title: 'Robot Math Lab',
       hero_subtitle: 'Virtual Robotics Math Learning Environment for Elementary Students.',
-      signboard_badge: 'INTERACTIVE CONTROL BOARD',
-      signboard_title: 'Choose Interface Language',
-      signboard_subtitle: 'Select how you want buttons and tools displayed:',
+      signboard_badge: 'CONTROL PANEL',
+      signboard_title: 'Choose language',
+      signboard_subtitle: 'You can switch between English and Vietnamese at any time.',
       lang_en: '🇬🇧 English',
       lang_vi: '🇻🇳 Tiếng Việt',
       btn_start: 'Start 🚀',
       student_name_label: 'Student Name / ID:',
       student_name_placeholder: 'Enter your name...',
-      robot_bubble_welcome: "Hi! I'm Sparky the Robot 🤖 Choose your language on my tablet and click Start to explore! ✨",
+      robot_bubble_welcome: "Hi! I'm Sparky. Choose a language, then press Start. 🤖",
       robot_easter_egg: 'Yay! Let\'s learn Math and code robots together! 🚀',
       scroll_down_hint: 'Click Start to enter missions!',
-      btn_enter_missions: 'Start Exploring Missions ➔',
-      hub_greeting: "Welcome, Explorer! Let's choose your learning mission:",
+      btn_enter_missions: 'Start a mission ➔',
+      hub_greeting: "Hi! Pick a mission and let's solve it together.",
       btn_back_to_start: '⚙️ Welcome & Language Screen',
 
       // Tasks Hub
       hub_section_title: 'Choose Your Mission',
-      hub_section_desc: 'Each mission focuses on key problem-solving strategies in uniform motion mathematics.',
+      hub_section_desc: 'Three short missions about speed, time, and distance.',
 
       // Task 1 Card
       task1_badge: '🎯 Task 1',
@@ -126,7 +137,7 @@
       track_3d_fallback: '3D is unavailable on this device — using the 2D track instead.',
       track_progress_badge: 'Robot Simulation',
       track_view_track_btn: '🔍 View Robot Track',
-      track_status_ready: 'Ready! Check your robot parameters and click "🚀 Run Robot" to launch!',
+      track_status_ready: 'Ready. Check the parameters, then press "Run Robot".',
       track_status_running: 'Robot is moving at {speed} {speedUnit} for {time} {timeUnit}...',
       track_status_finished: 'Simulation finished. Robot traveled {dist} {unit}.',
       track_result_match: '🎯 Target Reached! Robot traveled exactly {dist} {unit} to the destination!',
@@ -161,13 +172,13 @@
       s4_btn_yes: '✅ Yes, reached {target}m exactly',
       s4_btn_no: '❌ No, did not reach {target}m',
       s4_btn_back: '← Back',
-      s4_math_proof_title: 'Mathematical Verification:',
+      s4_math_proof_title: 'Mathematical check:',
       s4_refl_placeholder: 'Share your thoughts or strategies about this problem...',
       s4_btn_complete: '🎉 Complete Mission!',
       s4_btn_retry: '🔁 Test New Plan ➔',
       s4_testing_new: '⏳ Robot Testing New Plan...',
       s4_testing_status: 'Verifying with revised parameters: {speed} m/s × {time} s...',
-      s4_success_status: '🎉 Awesome! The robot reached the exact target <strong>{target} m</strong>!',
+      s4_success_status: 'The robot reached the target: <strong>{target} m</strong>.',
       s4_input_error: 'Please enter a valid revised parameter for the robot!',
       s4_choice_error: 'Please choose both the observation and the cause before testing a new plan.',
       s4_obs_prompt: '👀 Look at where the robot stopped on the track, then select your answer above.',
@@ -178,9 +189,9 @@
       // Mascot Sparky Cheer Messages
       sparky_step_1: "Read the problem carefully! Find what numbers are given! 🧐",
       sparky_step_2: "Choose the correct formula and calculate! You can do it! 📐",
-      sparky_step_3: "Exciting! Check your parameters and click '🚀 Run Robot' to see it go! 🤖💨",
+      sparky_step_3: "Check the parameters, then press 'Run Robot'. 🤖",
       sparky_step_4: "Check if the robot landed exactly on the target line! 🔍",
-      sparky_victory: "Splendid! The robot hit the target! Continue to check the result! 🏆✨",
+      sparky_victory: "The robot hit the target. Check the result. 🏆",
       sparky_oops: "The robot stopped before the target marker! Continue to observe and analyze the result! 🔍",
 
       // Dictionary Modal
@@ -218,61 +229,63 @@
       sound_muted: 'Đã tắt tiếng',
       fullscreen_enter: 'Toàn màn hình',
       fullscreen_exit: 'Thu nhỏ',
-      lang_switch_title: 'ngôn ngữ ',
+      lang_switch_title: 'Ngôn ngữ',
       settings_btn_title: 'Cài đặt',
       settings_modal_title: '⚙️ Cài đặt',
-      settings_modal_subtitle: 'Tùy chỉnh ',
+      settings_modal_subtitle: 'Tên hiển thị, ngôn ngữ và âm thanh',
       settings_name_label: 'Tên của bé:',
-      settings_name_hint: 'Hiển thị trong toàn bộ hành trình làm bài',
+      settings_name_hint: 'Dùng để chào em trong ứng dụng',
       settings_name_save: 'Lưu',
-      settings_lang_label: 'Ngôn ngữ ',
-      settings_lang_hint: ' Tiếng Việt hoặc English',
+      settings_name_required: 'Vui lòng nhập tên hiển thị.',
+      settings_name_save_failed: 'Không lưu được tên. Vui lòng thử lại.',
+      settings_lang_label: 'Ngôn ngữ:',
+      settings_lang_hint: 'Chuyển giữa tiếng Việt và tiếng Anh',
       settings_sound_label: 'Hiệu ứng âm thanh:',
       settings_sound_hint: 'Âm thanh vui nhộn khi thao tác và hoàn thành bài',
       settings_fs_label: 'Toàn màn hình:',
       settings_fs_hint: 'Mở rộng tối đa không gian học tập',
-      settings_done_btn: 'Xong & Tiếp tục học ✨',
+      settings_done_btn: 'Xong, tiếp tục học',
 
       // Welcome Hero & Robot Signboard
-      hero_eyebrow: 'TƯ DUY GIẢI QUYẾT VẤN ĐỀ  ',
+      hero_eyebrow: 'TOÁN CHUYỂN ĐỘNG · ROBOT ẢO',
       hero_title: 'Robot Math Lab',
       hero_subtitle: `Môi trường học tập Toán - Tiếng Anh qua mô phỏng Robotics dành cho học sinh tiểu học.`,
-      signboard_badge: 'BẢNG ĐIỀU KHIỂN TƯƠNG TÁC',
-      signboard_title: 'Chọn Ngôn Ngữ',
-      signboard_subtitle: 'Chọn ngôn ngữ hiển thị cho các nút bấm và chức năng:',
-      lang_en: ' English',
-      lang_vi: ' Tiếng Việt',
+      signboard_badge: 'BẢNG ĐIỀU KHIỂN',
+      signboard_title: 'Chọn ngôn ngữ',
+      signboard_subtitle: 'Em có thể đổi giữa tiếng Việt và tiếng Anh bất cứ lúc nào.',
+      lang_en: 'English',
+      lang_vi: 'Tiếng Việt',
       btn_start: 'Bắt đầu 🚀',
       student_name_label: 'Tên học sinh / Mã số:',
       student_name_placeholder: 'Nhập họ và tên...',
-      robot_bubble_welcome: 'Xin chào bạn! Mình là robot Sparky 🤖 Hãy chọn ngôn ngữ trên bảng và bấm Bắt đầu nhé! ✨',
+      robot_bubble_welcome: 'Xin chào! Mình là Sparky. Chọn ngôn ngữ rồi bấm Bắt đầu nhé! 🤖',
       robot_easter_egg: 'Tuyệt vời! Chúng mình cùng học Toán và lập trình robot nào! 🚀',
       scroll_down_hint: 'Bấm Bắt đầu để vào làm nhiệm vụ!',
-      btn_enter_missions: 'Bắt đầu Khám phá Nhiệm vụ ➔',
-      hub_greeting: 'Chào mừng bạn! Hãy chọn một nhiệm vụ học tập để bắt đầu:',
-      btn_back_to_start: '⚙️ Màn hình Chào mừng & Cài đặt',
+      btn_enter_missions: 'Vào làm nhiệm vụ ➔',
+      hub_greeting: 'Chào bạn! Hãy chọn một nhiệm vụ và cùng giải nhé.',
+      btn_back_to_start: '⚙️ Màn hình chào & cài đặt',
 
       // Tasks Hub
-      hub_section_title: 'Chọn Nhiệm Vụ Học Tập',
-      hub_section_desc: 'Mỗi nhiệm vụ tập trung vào các khía cạnh giải quyết vấn đề toán chuyển động đều.',
+      hub_section_title: 'Chọn nhiệm vụ',
+      hub_section_desc: 'Ba nhiệm vụ ngắn về vận tốc, thời gian và quãng đường.',
 
       // Task 1 Card
       task1_badge: '🎯 Nhiệm vụ 1',
       task1_title: 'Hành trình đến đích',
-      task1_btn: 'Bắt đầu Nhiệm vụ 1 ➔',
+      task1_btn: 'Bắt đầu nhiệm vụ 1 ➔',
 
       // Task 2 Card
       task2_badge: '🔧 Nhiệm vụ 2',
       task2_title: 'Chuyến đi bất ngờ',
-      task2_btn: 'Bắt đầu Nhiệm vụ 2 ➔',
+      task2_btn: 'Bắt đầu nhiệm vụ 2 ➔',
 
       // Task 3 Card
       task3_badge: '🆕 Nhiệm vụ 3',
       task3_title: 'Thử thách đúng giờ',
-      task3_btn: 'Bắt đầu Nhiệm vụ 3 ➔',
+      task3_btn: 'Bắt đầu nhiệm vụ 3 ➔',
 
       // Workspace Common
-      btn_back_hub: '← Danh sách Nhiệm vụ',
+      btn_back_hub: '← Danh sách nhiệm vụ',
       btn_hint: '💡 Gợi ý',
       btn_dict: '📖 Từ điển',
       btn_feedback: '📋 Xem nhận xét',
@@ -280,7 +293,7 @@
       confirm_leave_task: 'Bạn có chắc muốn quay lại danh sách nhiệm vụ? Tiến trình hiện tại đã được lưu vào nhật ký.',
 
       // Problem Statement Card
-      problem_card_title: 'Đề bài nhiệm vụ (Problem Statement)',
+      problem_card_title: 'Đề bài',
       btn_trans_show: '🌐 Xem dịch tiếng Việt',
       btn_trans_hide: '🌐 Ẩn bản dịch',
       problem_hint_meta: '💡 Gợi ý: Nhấp vào từ tiếng Anh có gạch chân để nghe phát âm & xem giải thích nghĩa tiếng Việt.',
@@ -296,8 +309,8 @@
       sim_stopped: 'Robot đã dừng lại sau khi đi được {dist} m.',
 
       // Dedicated Virtual Robot Track Sub-screen
-      s3_btn_open_track: 'Mở Virtual Robot Track ➔',
-      track_view_title: 'Virtual Robot Track',
+      s3_btn_open_track: 'Mở đường chạy Robot ➔',
+      track_view_title: 'Đường chạy Robot ảo',
       track_btn_back_params: '← Quay lại nhập thông số',
       track_btn_back_step4: '← Quay lại phần kiểm tra',
       track_btn_run: '🚀 Chạy Robot',
@@ -316,7 +329,7 @@
       track_3d_fallback: 'Thiết bị chưa hỗ trợ 3D — đang dùng đường đua 2D.',
       track_progress_badge: 'Mô phỏng robot',
       track_view_track_btn: '🔍 Xem lại đường chạy Robot',
-      track_status_ready: 'Sẵn sàng! Kiểm tra thông số đã nhập rồi bấm "🚀 Chạy Robot" để quan sát!',
+      track_status_ready: 'Sẵn sàng. Kiểm tra thông số rồi bấm "Chạy Robot".',
       track_status_running: 'Robot đang di chuyển với vận tốc {speed} {speedUnit} trong {time} {timeUnit}...',
       track_status_finished: 'Mô phỏng hoàn thành. Robot đã đi được {dist} {unit}.',
       track_result_match: '🎯 Đúng vạch đích! Robot đã đi chính xác {dist} {unit} đến đích!',
@@ -351,13 +364,13 @@
       s4_btn_yes: '✅ Có, đến chính xác đích {target}m',
       s4_btn_no: '❌ Chưa đạt, chưa đến đích {target}m',
       s4_btn_back: '← Quay lại',
-      s4_math_proof_title: 'Kiểm chứng Toán học (Mathematical Verification):',
+      s4_math_proof_title: 'Kiểm chứng bằng phép tính:',
       s4_refl_placeholder: 'Chia sẻ suy nghĩ hoặc bài học rút ra của bạn về bài toán này...',
-      s4_btn_complete: '🎉 Hoàn thành Nhiệm vụ!',
-      s4_btn_retry: '🔁 Thử nghiệm phương án mới ➔',
+      s4_btn_complete: '🎉 Hoàn thành nhiệm vụ!',
+      s4_btn_retry: '🔁 Thử phương án mới ➔',
       s4_testing_new: '⏳ Rô-bốt đang thử nghiệm phương án mới...',
       s4_testing_status: 'Đang kiểm chứng với thông số mới: {speed} m/s × {time} s...',
-      s4_success_status: '🎉 Tuyệt vời! Rô-bốt đã đến đúng mốc <strong>{target} m</strong>!',
+      s4_success_status: 'Rô-bốt đã đến đúng mốc <strong>{target} m</strong>.',
       s4_input_error: 'Vui lòng nhập giá trị thông số đã điều chỉnh cho rô-bốt!',
       s4_choice_error: 'Hãy chọn cả quan sát và nguyên nhân trước khi thử phương án mới.',
       s4_obs_prompt: '👀 Hãy quan sát vị trí dừng của rô-bốt trên đường chạy rồi chọn câu trả lời ở trên nhé!',
@@ -368,9 +381,9 @@
       // Mascot Sparky Cheer Messages
       sparky_step_1: 'Hãy đọc kỹ đề bài và tìm xem bài toán cho những số liệu nào nhé! 🧐',
       sparky_step_2: 'Chọn công thức và tính toán thật chuẩn xác nào! Bạn làm được mà! 📐',
-      sparky_step_3: "Hồi hộp quá! Hãy kiểm tra thông số rồi bấm '🚀 Chạy Robot' để xem nhé! 🤖💨",
+      sparky_step_3: "Kiểm tra thông số rồi bấm 'Chạy Robot' nhé! 🤖",
       sparky_step_4: 'Kiểm tra lại xem robot có về đúng vạch đích không nhé! 🔍',
-      sparky_victory: 'Tuyệt đỉnh! Robot đã đi đúng đích rồi! Hãy tiếp tục kiểm tra kết quả nhé! 🏆✨',
+      sparky_victory: 'Rô-bốt đã tới đích. Giờ mình kiểm tra kết quả nhé! 🏆',
       sparky_oops: 'Robot đã dừng trước vạch đích rồi! Hãy tiếp tục quan sát và đánh giá nhé! 🔍',
 
       // Dictionary Modal
@@ -432,8 +445,10 @@
       try {
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem(STORAGE_KEY, currentLang);
+          localStorage.setItem(LEGACY_STORAGE_KEY, currentLang);
         }
       } catch (_) { }
+      syncDocumentLanguage();
 
       // Play cute click audio
       if (typeof window !== 'undefined' && window.SoundFX) {

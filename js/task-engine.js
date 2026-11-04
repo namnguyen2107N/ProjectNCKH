@@ -619,6 +619,15 @@ class TaskEngine {
     const time = this.studentInputs.step3.time;
     const hasValidParameters = Number.isFinite(speed) && speed > 0 && Number.isFinite(time) && time > 0;
 
+    // A result only belongs to the parameters that produced it. Editing the
+    // plan must not leave a stale "Continue" state on the track screen.
+    if (this.lastRunResult && (
+      Number(this.lastRunResult.speed) !== Number(speed) ||
+      Number(this.lastRunResult.time) !== Number(time)
+    )) {
+      this.lastRunResult = null;
+    }
+
     // Update readout labels and values
     const lblSpeed = document.getElementById('lbl-disp-speed');
     const lblTime = document.getElementById('lbl-disp-time');
@@ -803,10 +812,58 @@ class TaskEngine {
   }
 
   /**
+   * Snapshot unsaved form values before a language re-render so a student does
+   * not lose typed numbers or selected options.
+   */
+  captureStepFormState() {
+    const root = document.getElementById('workspace-config-view');
+    if (!root) return [];
+    const state = [];
+    root.querySelectorAll('input, textarea, select').forEach((el) => {
+      if (el.type === 'hidden' || el.disabled) return;
+      if (el.type === 'radio' || el.type === 'checkbox') {
+        if (el.checked) state.push({ kind: 'check', name: el.name, value: el.value });
+      } else if (el.id) {
+        state.push({ kind: 'value', id: el.id, value: el.value });
+      }
+    });
+    return state;
+  }
+
+  restoreStepFormState(state) {
+    if (!Array.isArray(state) || !state.length) return;
+    const root = document.getElementById('workspace-config-view');
+    if (!root) return;
+    const dispatch = (el, type) => {
+      if (typeof Event !== 'undefined') {
+        el.dispatchEvent(new Event(type, { bubbles: true }));
+      }
+    };
+    state.forEach((item) => {
+      if (item.kind === 'check') {
+        const radio = Array.from(root.querySelectorAll('input'))
+          .find((el) => el.name === item.name && el.value === item.value);
+        if (radio) {
+          radio.checked = true;
+          dispatch(radio, 'change');
+        }
+      } else {
+        const el = document.getElementById(item.id);
+        if (el) {
+          el.value = item.value;
+          dispatch(el, 'input');
+          dispatch(el, 'change');
+        }
+      }
+    });
+  }
+
+  /**
    * Reactive Language Update without losing state
    */
   updateLanguage() {
     if (!this.container || !this.taskConfig) return;
+    const formState = this.captureStepFormState();
     const t = (k, p) => window.I18N ? window.I18N.t(k, p) : k;
     const isVi = window.I18N ? window.I18N.isVietnamese() : false;
     const currentTitle = isVi ? (this.taskConfig.titleVi || this.taskConfig.title) : this.taskConfig.title;
@@ -861,6 +918,7 @@ class TaskEngine {
     // Re-render active step in config view
     if (this.polya) {
       this.renderStep(this.polya.currentStep);
+      this.restoreStepFormState(formState);
     }
   }
 
@@ -1706,6 +1764,11 @@ class TaskEngine {
       const reflectionInput = document.getElementById('input-reflection');
       if (reflectionInput) {
         reflectionInput.value = this.studentInputs.step4.reflection || '';
+        if (typeof reflectionInput.addEventListener === 'function') {
+          reflectionInput.addEventListener('input', () => {
+            this.studentInputs.step4.reflection = reflectionInput.value;
+          });
+        }
       }
 
       document.getElementById('btn-complete-mission').onclick = () => {

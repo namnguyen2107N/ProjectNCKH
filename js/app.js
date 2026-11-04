@@ -146,16 +146,43 @@ class AppController {
     const btnSaveName = document.getElementById('btn-save-settings-name');
     const inputName = document.getElementById('settings-input-name');
     if (btnSaveName && inputName) {
-      const doSave = () => {
+      const nameError = document.getElementById('settings-name-error');
+      const doSave = async () => {
+        if (btnSaveName.disabled) return;
+        const t = (key) => window.I18N ? window.I18N.t(key) : key;
         const val = inputName.value.trim();
-        if (val) {
-          this.setStudentName(val);
+        if (!val) {
+          if (nameError) {
+            nameError.textContent = t('settings_name_required');
+            nameError.hidden = false;
+          }
+          inputName.focus();
+          return;
+        }
+
+        if (nameError) nameError.hidden = true;
+        btnSaveName.disabled = true;
+        btnSaveName.innerText = '…';
+        try {
+          if (!window.RMLAuth || typeof window.RMLAuth.updateDisplayName !== 'function') {
+            throw new Error(t('settings_name_save_failed'));
+          }
+          const account = await window.RMLAuth.updateDisplayName(val);
+          this.setStudentName(account?.display_name || val);
           if (window.SoundFX) window.SoundFX.playTing();
           btnSaveName.innerText = '✓';
           setTimeout(() => {
-            const isVi = window.I18N ? window.I18N.isVietnamese() : false;
-            btnSaveName.innerText = isVi ? 'Lưu' : 'Save';
+            btnSaveName.innerText = t('settings_name_save');
           }, 1200);
+        } catch (error) {
+          if (nameError) {
+            nameError.textContent = error?.message || t('settings_name_save_failed');
+            nameError.hidden = false;
+          }
+          btnSaveName.innerText = t('settings_name_save');
+          if (window.SoundFX) window.SoundFX.playOops();
+        } finally {
+          btnSaveName.disabled = false;
         }
       };
       btnSaveName.addEventListener('click', doSave);
@@ -224,6 +251,8 @@ class AppController {
 
     const inputName = document.getElementById('settings-input-name');
     if (inputName) inputName.value = this.currentStudent;
+    const nameError = document.getElementById('settings-name-error');
+    if (nameError) nameError.hidden = true;
 
     this.syncSettingsModalContent();
 
@@ -263,6 +292,8 @@ class AppController {
     if (hintName) hintName.innerText = t('settings_name_hint');
     const btnSaveName = document.getElementById('btn-save-settings-name');
     if (btnSaveName && btnSaveName.innerText !== '✓') btnSaveName.innerText = t('settings_name_save');
+    const nameError = document.getElementById('settings-name-error');
+    if (nameError) nameError.hidden = true;
 
     const lblLang = document.getElementById('lbl-settings-lang');
     if (lblLang) lblLang.innerText = t('settings_lang_label');
@@ -494,12 +525,12 @@ class AppController {
 
       const eyebrow = document.getElementById('splash-eyebrow');
       if (eyebrow) {
-        eyebrow.innerText = lang === 'vi' ? '★ NHẬP MÔN TOÁN HỌC & ROBOTICS ★' : '★ MATH & ROBOTICS LAB ★';
+        eyebrow.innerText = lang === 'vi' ? '★ TOÁN CHUYỂN ĐỘNG & ROBOT ★' : '★ MOTION MATH & ROBOTS ★';
       }
 
       const subtitle = document.getElementById('splash-subtitle');
       if (subtitle) {
-        subtitle.innerText = lang === 'vi' ? 'NỀN TẢNG TOÁN HỌC' : 'MATH PLATFORM';
+        subtitle.innerText = lang === 'vi' ? 'TOÁN CHUYỂN ĐỘNG' : 'MOTION MATH';
       }
 
       const nameLabel = document.getElementById('splash-name-label');

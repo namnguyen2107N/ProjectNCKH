@@ -40,7 +40,7 @@
   const TEXT = {
     vi: {
       loading: 'Đang kiểm tra đăng nhập...',
-      kicker: 'NỀN TẢNG HỌC TOÁN & ROBOTICS',
+      kicker: 'TOÁN CHUYỂN ĐỘNG & ROBOT',
       title: 'Chào mừng em đến với phòng thí nghiệm!',
       subtitle: 'Đăng nhập để lưu tiến độ và bảo vệ dữ liệu học tập của em.',
       loginTab: 'Đăng nhập',
@@ -354,40 +354,46 @@
     el.hidden = false;
   }
 
+  function activeText() {
+    const active = (window.I18N && window.I18N.currentLang) || lang;
+    return TEXT[active] || t;
+  }
+
   function errorMessage(data, response) {
     const error = data && data.error;
     const code = error && error.code;
+    const isVi = ((window.I18N && window.I18N.currentLang) || lang) === 'vi';
     if (code === 'VALIDATION_ERROR' && error.details) {
       const details = Object.values(error.details).filter(Boolean);
       if (details.length) return details.slice(0, 3).join(' ');
     }
-    if (code === 'INVALID_CREDENTIALS') return lang === 'vi'
+    if (code === 'INVALID_CREDENTIALS') return isVi
       ? 'Sai tên đăng nhập hoặc mật khẩu.'
       : 'Incorrect username or password.';
-    if (code === 'CLASS_NOT_FOUND') return lang === 'vi'
+    if (code === 'CLASS_NOT_FOUND') return isVi
       ? 'Mã lớp không đúng. Vui lòng kiểm tra lại.'
       : 'Class code not found. Please check it again.';
-    if (code === 'USERNAME_TAKEN') return lang === 'vi'
+    if (code === 'USERNAME_TAKEN') return isVi
       ? 'Tên đăng nhập này đã được sử dụng.'
       : 'This username is already taken.';
-    if (code === 'ACCOUNT_DISABLED') return lang === 'vi'
+    if (code === 'ACCOUNT_DISABLED') return isVi
       ? 'Tài khoản đã bị khoá. Vui lòng liên hệ giáo viên.'
       : 'This account is disabled. Please contact your teacher.';
-    if (code === 'ACCOUNT_LOCKED') return lang === 'vi'
+    if (code === 'ACCOUNT_LOCKED') return isVi
       ? 'Tài khoản tạm thời bị khoá. Vui lòng thử lại sau.'
       : 'This account is temporarily locked. Please try again later.';
     if (code === 'RATE_LIMITED') {
       const retry = response && response.headers.get('Retry-After');
       const suffix = retry ? ` (${retry}s)` : '';
-      return (lang === 'vi'
+      return (isVi
         ? 'Bạn thao tác quá nhanh. Vui lòng thử lại sau.'
         : 'Too many attempts. Please try again later.') + suffix;
     }
     if (code === 'DB_NOT_CONFIGURED' || (response && response.status >= 500)) {
-      return t.maintenance;
+      return activeText().maintenance;
     }
     if (error && error.message) return error.message;
-    return t.maintenance;
+    return activeText().maintenance;
   }
 
   async function onLoginSubmit(event) {
@@ -488,6 +494,7 @@
   function installAccountUI() {
     const body = document.querySelector('.settings-modal-body');
     if (!body) return;
+    const text = activeText();
 
     let panel = document.getElementById('rml-account-panel');
     if (!panel) {
@@ -505,7 +512,7 @@
       const textWrap = document.createElement('div');
       const label = document.createElement('span');
       label.className = 'settings-label';
-      label.textContent = t.accountPanel;
+      label.textContent = text.accountPanel;
       const hint = document.createElement('div');
       hint.className = 'settings-hint';
       hint.id = 'rml-account-meta';
@@ -521,7 +528,8 @@
       const logout = document.createElement('button');
       logout.type = 'button';
       logout.className = 'btn-settings-action-pill';
-      logout.textContent = t.logout;
+      logout.dataset.action = 'logout';
+      logout.textContent = text.logout;
       logout.addEventListener('click', onLogoutClick);
 
       const error = document.createElement('div');
@@ -537,25 +545,29 @@
       body.appendChild(panel);
     }
 
+    const label = panel.querySelector('.settings-label');
+    if (label) label.textContent = text.accountPanel;
+    const logoutButton = panel.querySelector('[data-action="logout"]');
+    if (logoutButton) logoutButton.textContent = text.logout;
+
     const meta = panel.querySelector('#rml-account-meta');
     if (meta) {
-      meta.textContent = `${state.account.username} · ${state.account.class_name || t.noClass}`;
+      meta.textContent = `${state.account.username} · ${state.account.class_name || text.noClass}`;
     }
 
-    // The display name is owned by the account; editing it locally would only
-    // create a mismatch until the next reload.
+    // The display name is saved to the account through /api/auth/profile.
     const nameInput = document.getElementById('settings-input-name');
     if (nameInput) {
-      nameInput.readOnly = true;
-      nameInput.title = lang === 'vi' ? 'Tên lấy từ tài khoản' : 'Name comes from your account';
+      nameInput.readOnly = false;
+      nameInput.title = '';
     }
     const saveName = document.getElementById('btn-save-settings-name');
-    if (saveName) saveName.hidden = true;
+    if (saveName) saveName.hidden = false;
 
     const splashInput = document.getElementById('splash-student-name');
     if (splashInput) {
       splashInput.readOnly = true;
-      splashInput.title = lang === 'vi' ? 'Tên lấy từ tài khoản' : 'Name comes from your account';
+      splashInput.title = activeText() === TEXT.vi ? 'Tên lấy từ tài khoản' : 'Name comes from your account';
     }
   }
 
@@ -568,7 +580,8 @@
 
   async function onLogoutClick(event) {
     const button = event.currentTarget;
-    if (!window.confirm(t.logoutConfirm)) return;
+    const text = activeText();
+    if (!window.confirm(text.logoutConfirm)) return;
     const error = document.getElementById('rml-account-error');
     if (error) error.hidden = true;
     button.disabled = true;
@@ -578,12 +591,12 @@
         headers: { 'X-CSRF-Token': state.csrf || '' },
       });
       if (!response.ok && response.status !== 401) {
-        showAccountError(t.logoutFailed);
+        showAccountError(activeText().logoutFailed);
         button.disabled = false;
         return;
       }
     } catch {
-      showAccountError(t.logoutFailed);
+      showAccountError(activeText().logoutFailed);
       button.disabled = false;
       return;
     }
@@ -625,6 +638,15 @@
     }
   }
 
+  function localOfflineAllowed() {
+    try {
+      const host = location.hostname;
+      return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
+    } catch {
+      return false;
+    }
+  }
+
   async function bootstrap() {
     if (state.booting) return;
     state.booting = true;
@@ -641,6 +663,13 @@
         return;
       }
       if (response.status === 404) {
+        if (localOfflineAllowed()) {
+          // Static preview without Vercel Functions: keep local development
+          // usable, but never bypass the gate on a deployed host.
+          console.warn('[RMLAuth] Auth API returned 404 – local offline mode.');
+          finishOffline();
+          return;
+        }
         renderFatal(lang === 'vi'
           ? 'Máy chủ đăng nhập chưa được triển khai. Vui lòng liên hệ quản trị viên.'
           : 'The login API is not deployed yet. Please contact the administrator.');
@@ -648,9 +677,43 @@
       }
       renderFatal(errorMessage(data, response));
     } catch {
-      renderFatal(t.network);
+      if (localOfflineAllowed()) {
+        console.warn('[RMLAuth] Cannot reach auth API – local offline mode.');
+        finishOffline();
+        return;
+      }
+      renderFatal(activeText().network);
     } finally {
       state.booting = false;
+    }
+  }
+
+  /**
+   * Allow the app to run without a backend.  Uses the locally-stored student
+   * name (or a sensible default) and skips heartbeat / CSRF.
+   */
+  function finishOffline() {
+    const savedName = localStorage.getItem('rml_student_name')
+      || (lang === 'vi' ? 'Bé Yêu Toán' : 'Math Explorer');
+    const offlineAccount = {
+      id: 0,
+      username: 'offline',
+      display_name: savedName,
+      class_name: null,
+    };
+
+    state.account = offlineAccount;
+    state.csrf = null;
+    state.authenticated = false;          // not truly authenticated
+
+    removeOverlay();
+    if (!state.readyResolved) {
+      state.readyResolved = true;
+      resolveReady();
+    }
+
+    if (window.App && typeof window.App.setStudentName === 'function') {
+      window.App.setStudentName(offlineAccount.display_name);
     }
   }
 
@@ -667,12 +730,28 @@
     return response;
   }
 
+  async function updateDisplayName(displayName) {
+    const response = await apiFetch(`${AUTH_BASE}/profile`, {
+      method: 'PATCH',
+      body: JSON.stringify({ display_name: displayName }),
+    });
+    let payload = null;
+    try { payload = await response.json(); } catch { payload = null; }
+    if (!response.ok) throw new Error(errorMessage(payload, response));
+    const account = payload?.data?.account;
+    if (!account) throw new Error(activeText().network);
+    state.account = account;
+    localStorage.setItem('rml_student_name', account.display_name);
+    return account;
+  }
+
   window.RMLAuth = {
     ready,
     get account() { return state.account; },
     get csrf() { return state.csrf; },
     get authenticated() { return state.authenticated; },
     apiFetch,
+    updateDisplayName,
     refresh: bootstrap,
   };
 
@@ -683,6 +762,11 @@
       fn();
     }
   }
+
+  // Keep the account row in sync when the interface language changes.
+  window.addEventListener('languageChanged', () => {
+    if (state.authenticated && state.account) installAccountUI();
+  });
 
   // Cover the app immediately so the static splash is not usable before auth.
   if (document.body) {

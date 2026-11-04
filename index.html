@@ -8,11 +8,11 @@
   <meta name="description"
     content="Virtual Robotics simulation platform helping elementary students master problem-solving in Math and STEM English." />
 
-  <!-- Google Fonts: Lexend, Be Vietnam Pro, Baloo 2, Nunito & Quicksand -->
+  <!-- Google Fonts: only the families the interface actually uses -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=Lexend:wght@400;500;600;700;800;900&family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@500;600;700;800&family=Press+Start+2P&family=Quicksand:wght@500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=Lexend:wght@400;500;600;700;800;900&family=Baloo+2:wght@500;600;700;800&family=Press+Start+2P&display=swap"
     rel="stylesheet">
 
   <!-- Main Unified Kid-Friendly Fullscreen Stylesheet -->
@@ -23,6 +23,9 @@
 
   <!-- Login / registration gate -->
   <link rel="stylesheet" href="css/auth.css" />
+
+  <!-- Phone and small-tablet layout overrides -->
+  <link rel="stylesheet" href="css/mobile.css" />
 
   <!-- Cute Tab Favicon -->
   <link rel="icon"
@@ -170,13 +173,13 @@
 
             <!-- Header & App Title -->
             <div class="signboard-header">
-              <div class="arcade-eyebrow" id="splash-eyebrow">★ NHẬP MÔN TOÁN HỌC & ROBOTICS ★</div>
+              <div class="arcade-eyebrow" id="splash-eyebrow">★ TOÁN CHUYỂN ĐỘNG & ROBOT ★</div>
               <h1 class="arcade-title grand-title">
                 <span class="title-word-1">ROBOT</span>
                 <span class="title-word-2">MATH</span>
                 <span class="title-word-3">LAB</span>
               </h1>
-              <div class="arcade-sub grand-sub" id="splash-subtitle">NỀN TẢNG HỌC TOÁN</div>
+              <div class="arcade-sub grand-sub" id="splash-subtitle">TOÁN CHUYỂN ĐỘNG</div>
             </div>
 
             <!-- Big Tactile 3D START Action Button (Extra Grand Size) -->
@@ -304,7 +307,7 @@
       <div class="modal-header settings-modal-header">
         <div>
           <div class="modal-title" id="settings-modal-title">⚙️ Cài đặt</div>
-          <div class="modal-subtitle" id="settings-modal-subtitle">Tùy chỉnh </div>
+          <div class="modal-subtitle" id="settings-modal-subtitle">Tên hiển thị, ngôn ngữ và âm thanh</div>
         </div>
         <button type="button" class="btn-modal-close" id="btn-close-settings" aria-label="Đóng cài đặt">✕</button>
       </div>
@@ -316,15 +319,16 @@
             <span class="settings-icon-bubble">🧑‍🎓</span>
             <div>
               <label for="settings-input-name" class="settings-label" id="lbl-settings-name">Tên của bé:</label>
-              <div class="settings-hint" id="hint-settings-name">Hiển thị trong toàn bộ hành trình làm bài</div>
+              <div class="settings-hint" id="hint-settings-name">Dùng để chào em trong ứng dụng</div>
             </div>
           </div>
           <div class="settings-input-wrap">
-            <input type="text" id="settings-input-name" class="settings-text-input" maxlength="24"
+            <input type="text" id="settings-input-name" class="settings-text-input" maxlength="50"
               placeholder="Nhập tên bé..." />
             <button type="button" class="btn-settings-save-name" id="btn-save-settings-name">Lưu</button>
           </div>
         </div>
+        <div class="settings-name-error" id="settings-name-error" role="alert" hidden></div>
 
         <!-- Language Switch Option -->
         <div class="settings-row">
