@@ -8,7 +8,8 @@
     "db:migrate": "node scripts/migrate.mjs",
     "db:seed": "node scripts/seed.mjs",
     "user:reset-password": "node scripts/reset-password.mjs",
-    "test": "node --test tests/password.test.mjs tests/validate.test.mjs"
+    "build:3d": "esbuild js/simulation-3d.js --bundle --format=esm --minify --target=es2020 --outfile=js/simulation-3d.bundle.js",
+    "test": "node --test tests/password.test.mjs tests/validate.test.mjs tests/kinematics.test.mjs"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
@@ -16,5 +17,9 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "three": "^0.187.0"
   }
 }

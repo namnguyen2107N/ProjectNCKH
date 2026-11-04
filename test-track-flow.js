@@ -241,6 +241,7 @@ console.log('Loading scripts...');
 loadScript('js/i18n.js');
 loadScript('js/sound-fx.js');
 loadScript('js/polya-engine.js');
+loadScript('js/kinematics-model.js');
 loadScript('js/simulation-engine.js');
 loadScript('js/log-engine.js');
 loadScript('js/vocab-support.js');

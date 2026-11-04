@@ -19,10 +19,15 @@ class SimulationEngine {
       mode: 'single', // 'single', 'race', 'opposite', 'multistage'
     }, options);
 
-    this.robots = [];
+    if (!window.KinematicsModel) {
+      throw new Error('KinematicsModel is not loaded. Add js/kinematics-model.js before simulation-engine.js.');
+    }
+
+    this.model = new window.KinematicsModel({
+      trackLengthUnits: this.options.trackLengthUnits,
+      mode: this.options.mode
+    });
     this.isRunning = false;
-    this.isFinished = false;
-    this.elapsedSimTime = 0; // simulated seconds
     this.lastTimestamp = 0;
     this.animationFrameId = null;
 
@@ -30,12 +35,10 @@ class SimulationEngine {
     this.onTick = null;
     this.onFinish = null;
 
-    // History for graphs
-    this.history = []; // [{t, d1, v1, d2, v2}]
-
     // Cache DPR for performance
-    this._dpr = window.devicePixelRatio || 1;
+    this._dpr = Math.min(window.devicePixelRatio || 1, 2);
     this._resizeTimeout = null;
+    this._resizeRAF = null;
 
     this.resizeCanvas();
     this._resizeHandler = () => {
@@ -44,6 +47,31 @@ class SimulationEngine {
       this._resizeTimeout = setTimeout(() => this.resizeCanvas(), 150);
     };
     window.addEventListener('resize', this._resizeHandler);
+
+    // Container-based resize (fullscreen, layout changes, responsive cards).
+    if (typeof ResizeObserver !== 'undefined' && this.canvas.parentElement) {
+      this._resizeObserver = new ResizeObserver(() => {
+        if (this._resizeRAF) cancelAnimationFrame(this._resizeRAF);
+        this._resizeRAF = requestAnimationFrame(() => this.resizeCanvas());
+      });
+      this._resizeObserver.observe(this.canvas.parentElement);
+    }
+  }
+
+  get robots() {
+    return this.model ? this.model.robots : [];
+  }
+
+  get elapsedSimTime() {
+    return this.model ? this.model.elapsedSimTime : 0;
+  }
+
+  get isFinished() {
+    return this.model ? this.model.isFinished : false;
+  }
+
+  get history() {
+    return this.model ? this.model.history : [];
   }
 
   destroy() {
@@ -56,11 +84,20 @@ class SimulationEngine {
       clearTimeout(this._resizeTimeout);
       this._resizeTimeout = null;
     }
+    if (this._resizeRAF) {
+      cancelAnimationFrame(this._resizeRAF);
+      this._resizeRAF = null;
+    }
+    if (this._resizeObserver) {
+      this._resizeObserver.disconnect();
+      this._resizeObserver = null;
+    }
   }
 
   resizeCanvas() {
     if (!this.canvas) return;
     const rect = this.canvas.parentElement.getBoundingClientRect();
+    this._dpr = Math.min(window.devicePixelRatio || 1, 2);
     const dpr = this._dpr;
     this.canvas.width = rect.width * dpr;
     this.canvas.height = rect.height * dpr;
@@ -78,23 +115,7 @@ class SimulationEngine {
    * Each robot: { id, name, color, velocity, startPosUnits, targetUnits, direction: 1 or -1 }
    */
   setRobots(robotConfigs) {
-    this.robots = robotConfigs.map((cfg, idx) => ({
-      id: cfg.id || `robot_${idx}`,
-      name: cfg.name || `Robot ${idx + 1}`,
-      color: cfg.color || '#4F46E5',
-      velocity: cfg.velocity || 0,       // units per second
-      position: cfg.startPosUnits || 0,   // units
-      startPos: cfg.startPosUnits || 0,
-      target: cfg.targetUnits || this.options.trackLengthUnits,
-      direction: cfg.direction || 1,     // 1: left-to-right, -1: right-to-left
-      isFinished: false,
-      finishTime: null,
-      trackY: cfg.trackY || 0.4 + idx * 0.25, // percentage of canvas height
-      stages: cfg.stages || null,         // for multi-stage: [{s, v}, {s, v}]
-      currentStageIdx: 0,
-      stageDistTraveled: 0
-    }));
-
+    this.model.setRobots(robotConfigs);
     this.reset();
   }
 
@@ -129,19 +150,7 @@ class SimulationEngine {
 
   reset() {
     this.pause();
-    this.elapsedSimTime = 0;
-    this.isFinished = false;
-    this.history = [];
-
-    this.robots.forEach(r => {
-      r.position = r.startPos;
-      r.isFinished = false;
-      r.finishTime = null;
-      r.currentStageIdx = 0;
-      r.stageDistTraveled = 0;
-    });
-
-    this.recordHistoryPoint();
+    this.model.reset();
     this.render();
     if (this.onTick) this.onTick(this.elapsedSimTime, this.robots);
     if (typeof Telemetry !== 'undefined') {
@@ -151,9 +160,13 @@ class SimulationEngine {
 
   step(stepSeconds = 0.5) {
     this.pause();
+    const wasFinished = this.isFinished;
     this.updatePhysics(stepSeconds);
     this.render();
     if (this.onTick) this.onTick(this.elapsedSimTime, this.robots);
+    if (!wasFinished && this.isFinished && this.onFinish) {
+      this.onFinish(this.elapsedSimTime, this.robots);
+    }
   }
 
   setTimeScale(scale) {
@@ -197,88 +210,11 @@ class SimulationEngine {
   }
 
   updatePhysics(dt) {
-    this.elapsedSimTime += dt;
-    let allDone = true;
-
-    this.robots.forEach(robot => {
-      if (robot.isFinished) return;
-
-      let currentV = robot.velocity;
-
-      // Handle multi-stage piecewise kinematics if defined
-      if (robot.stages && robot.stages.length > 0) {
-        const currentStage = robot.stages[robot.currentStageIdx];
-        if (currentStage) {
-          currentV = currentStage.v;
-          robot.velocity = currentV;
-          const distDelta = currentV * dt;
-          robot.position += distDelta * robot.direction;
-          robot.stageDistTraveled += distDelta;
-
-          if (robot.stageDistTraveled >= currentStage.s) {
-            robot.currentStageIdx++;
-            robot.stageDistTraveled = 0;
-            if (robot.currentStageIdx >= robot.stages.length) {
-              robot.isFinished = true;
-              robot.finishTime = this.elapsedSimTime;
-            }
-          }
-        }
-      } else {
-        // Standard uniform motion: x = x0 + v * t
-        const distDelta = currentV * dt;
-        robot.position += distDelta * robot.direction;
-
-        // Check arrival
-        if (robot.direction > 0 && robot.position >= robot.target) {
-          robot.position = robot.target;
-          robot.isFinished = true;
-          robot.finishTime = this.elapsedSimTime;
-        } else if (robot.direction < 0 && robot.position <= robot.target) {
-          robot.position = robot.target;
-          robot.isFinished = true;
-          robot.finishTime = this.elapsedSimTime;
-        }
-      }
-
-      if (!robot.isFinished) {
-        allDone = false;
-      }
-    });
-
-    // Check opposite motion meeting condition once per frame
-    if (this.options.mode === 'opposite' && this.robots.length >= 2) {
-      const r1 = this.robots[0];
-      const r2 = this.robots[1];
-      if (r1.position >= r2.position) {
-        const meetingPoint = (r1.position + r2.position) / 2;
-        r1.position = meetingPoint;
-        r2.position = meetingPoint;
-        r1.isFinished = true;
-        r2.isFinished = true;
-        r1.finishTime = this.elapsedSimTime;
-        r2.finishTime = this.elapsedSimTime;
-        allDone = true;
-      }
-    }
-
-    this.isFinished = allDone;
-    this.recordHistoryPoint();
+    this.model.update(dt);
   }
 
   recordHistoryPoint() {
-    const point = {
-      t: parseFloat(this.elapsedSimTime.toFixed(2))
-    };
-    this.robots.forEach((r, idx) => {
-      point[`d${idx}`] = parseFloat(r.position.toFixed(2));
-      point[`v${idx}`] = parseFloat(r.velocity.toFixed(2));
-    });
-    this.history.push(point);
-    // Limit history length to 500
-    if (this.history.length > 500) {
-      this.history.shift();
-    }
+    this.model.recordHistoryPoint();
   }
 
   /**

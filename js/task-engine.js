@@ -11,6 +11,8 @@ class TaskEngine {
     this.taskConfig = null;
     this.polya = null;
     this.sim = null;
+    this._openTrackPromise = null;
+    this._openTrackToken = 0;
     this.attemptCount = 0;
     this.trackReturnContext = 'step3';
     this.studentInputs = {
@@ -92,6 +94,13 @@ class TaskEngine {
    * Load and initialize a task
    */
   loadTask(taskConfig, studentName = 'Student') {
+    if (this.sim) {
+      this.sim.destroy();
+      this.sim = null;
+    }
+    this._openTrackPromise = null;
+    this._openTrackToken += 1;
+
     this.taskConfig = taskConfig;
     this.attemptCount = 0;
     this.trackReturnContext = 'step3';
@@ -115,8 +124,98 @@ class TaskEngine {
     });
 
     this.renderLayout();
-    this.initSimulation();
+    this.preloadSimulation();
     this.polya.start();
+  }
+
+  /**
+   * Warm up the optional 3D renderer while the student is still solving steps.
+   * The 2D canvas remains available as the fallback.
+   */
+  preloadSimulation() {
+    if (!window.RML3D || !window.RML3D.enabled) return;
+    const load = () => {
+      window.RML3D.load().catch(() => {
+        // Fallback to 2D is handled when the track opens.
+      });
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      window.requestIdleCallback(load, { timeout: 2500 });
+    } else {
+      setTimeout(load, 900);
+    }
+  }
+
+  /**
+   * Create the appropriate simulation renderer. Both engines share the same
+   * KinematicsModel and expose the same subset of the SimulationEngine API.
+   */
+  initSimulation(EngineClass = window.SimulationEngine) {
+    if (!EngineClass) return null;
+
+    if (this.sim) {
+      this.sim.destroy();
+      this.sim = null;
+    }
+
+    const task = this.taskConfig;
+    const use3D = Boolean(EngineClass.is3D);
+    const targetId = use3D ? 'canvas-container' : 'robot-canvas';
+
+    this.sim = new EngineClass(targetId, {
+      trackLengthUnits: task.trackLength,
+      unitLabel: task.unit,
+      targetDistance: task.targetDistance,
+      timeScale: task.timeScale || 1.0
+    });
+
+    this.sim.onResize = () => {
+      this.updateFlagPosition();
+    };
+
+    this.sim.onTick = (elapsedSeconds, robots) => {
+      const bot = (robots && robots[0]) || this.sim?.robots?.[0];
+      if (!bot) return;
+      const distEl = document.getElementById('disp-dist');
+      const speedEl = document.getElementById('disp-speed');
+      const timeEl = document.getElementById('disp-time');
+      const elapsed = Number.isFinite(elapsedSeconds) ? elapsedSeconds : this.sim.elapsedSimTime;
+      if (distEl) distEl.innerText = `${bot.position.toFixed(1)} ${task.unit}`;
+      if (speedEl) speedEl.innerText = `${bot.velocity.toFixed(1)} ${task.speedUnit}`;
+      if (timeEl) timeEl.innerText = `${elapsed.toFixed(1)} ${task.timeUnit}`;
+    };
+
+    this.sim.onFatal = () => {
+      this.handleSimulationFatal();
+    };
+
+    this.sim.setRobots([{
+      id: 'main_bot',
+      name: 'Alpha Bot',
+      color: '#4f46e5',
+      velocity: task.robotSpeed,
+      startPosUnits: 0,
+      targetUnits: task.targetDistance
+    }]);
+
+    this.updateCameraUI();
+    return this.sim;
+  }
+
+  handleSimulationFatal() {
+    if (!this.sim || !this.sim.is3D) return;
+    const status = document.getElementById('sim-status-box');
+    if (status) {
+      status.innerText = window.I18N
+        ? window.I18N.t('track_3d_fallback')
+        : '3D is unavailable — using the 2D track.';
+    }
+    try {
+      this.sim.destroy();
+    } catch (_) { /* noop */ }
+    this.sim = null;
+    this.initSimulation(window.SimulationEngine);
+    this.updateTrackViewUI();
   }
 
   /**
@@ -233,12 +332,27 @@ class TaskEngine {
               </div>
             </div>
 
+            <!-- 3D camera switcher (hidden when the 2D fallback is active) -->
+            <div class="track-camera-bar hidden" id="track-camera-bar" role="group" aria-label="${t('track_camera_label')}">
+              <span class="track-camera-title">🎥 ${t('track_camera_label')}</span>
+              <button type="button" class="track-camera-btn active" id="btn-camera-overview" aria-pressed="true">
+                🌍 ${t('track_camera_overview')}
+              </button>
+              <button type="button" class="track-camera-btn" id="btn-camera-follow" aria-pressed="false">
+                🤖 ${t('track_camera_follow')}
+              </button>
+            </div>
+
             <!-- Canvas Wrapper for Full-width Road Simulation -->
             <div class="canvas-wrapper track-canvas-wrapper" id="canvas-container">
               <canvas id="robot-canvas"></canvas>
-              <!-- Target destination flag overlay -->
-              <div class="track-destination-flag" id="destination-flag" title="Destination: ${task.targetDistance}m">
-                🏁 ${task.targetDistance}m
+              <div class="sim-3d-loading hidden" id="sim-loading-overlay" role="status" aria-live="polite">
+                <span class="sim-3d-loading-robot" aria-hidden="true">🤖</span>
+                <span>${t('track_loading_3d')}</span>
+              </div>
+              <!-- Target destination flag overlay (2D fallback) -->
+              <div class="track-destination-flag" id="destination-flag" title="Destination: ${task.targetDistance}${task.unit}">
+                🏁 ${task.targetDistance}${task.unit}
               </div>
             </div>
 
@@ -350,6 +464,11 @@ class TaskEngine {
     const trackGoStep4Btn = document.getElementById('btn-track-go-step4');
     if (trackGoStep4Btn) trackGoStep4Btn.onclick = () => this.continueFromTrack();
 
+    const cameraOverviewBtn = document.getElementById('btn-camera-overview');
+    if (cameraOverviewBtn) cameraOverviewBtn.onclick = () => this.setCameraMode('overview');
+    const cameraFollowBtn = document.getElementById('btn-camera-follow');
+    if (cameraFollowBtn) cameraFollowBtn.onclick = () => this.setCameraMode('follow');
+
   }
 
   /**
@@ -363,15 +482,60 @@ class TaskEngine {
 
     if (configView) configView.classList.add('hidden');
     trackView.classList.remove('hidden');
-
     this.updateTrackViewUI();
 
-    // Measure and resize canvas cleanly after display
-    requestAnimationFrame(() => {
-      if (this.sim) {
-        this.sim.resizeCanvas();
-        this.updateFlagPosition();
+    // Keep tests and devices without 3D synchronous: create the 2D renderer now.
+    if (this.sim) {
+      this.revealTrack();
+      return;
+    }
+    if (!window.RML3D || !window.RML3D.enabled) {
+      this.initSimulation(window.SimulationEngine);
+      this.revealTrack();
+      return;
+    }
+    this.openTrackWith3D();
+  }
+
+  async openTrackWith3D() {
+    if (this._openTrackPromise) return this._openTrackPromise;
+
+    const token = ++this._openTrackToken;
+    const loading = document.getElementById('sim-loading-overlay');
+    const runBtn = document.getElementById('btn-track-run-robot');
+    if (loading) loading.classList.remove('hidden');
+    if (runBtn) runBtn.disabled = true;
+
+    this._openTrackPromise = (async () => {
+      try {
+        const Engine3D = await window.RML3D.load();
+        if (token !== this._openTrackToken) return;
+        this.initSimulation(Engine3D || window.SimulationEngine);
+      } catch (error) {
+        if (token !== this._openTrackToken) return;
+        console.warn('3D renderer unavailable, using 2D fallback:', error?.message || error);
+        this.initSimulation(window.SimulationEngine);
+      } finally {
+        if (token === this._openTrackToken) {
+          if (loading) loading.classList.add('hidden');
+          this.updateTrackViewUI();
+          this.revealTrack();
+          this._openTrackPromise = null;
+        }
       }
+    })();
+
+    return this._openTrackPromise;
+  }
+
+  revealTrack() {
+    this.updateFlagPosition();
+    requestAnimationFrame(() => {
+      if (!this.sim) return;
+      this.sim.resizeCanvas();
+      if (this.sim.onResize) this.sim.onResize();
+      this.updateFlagPosition();
+      this.updateCameraUI();
     });
   }
 
@@ -447,9 +611,12 @@ class TaskEngine {
     const targetPill = document.getElementById('track-target-pill');
     if (targetPill) targetPill.innerHTML = `🏁 ${t('sim_target_label')} <strong>${task.targetDistance} ${task.unit}</strong>`;
 
-    // Destination flag
+    // Destination flag (2D fallback only; 3D renders its own beacon)
     const flagEl = document.getElementById('destination-flag');
-    if (flagEl) flagEl.innerHTML = `🏁 ${task.targetDistance}m`;
+    if (flagEl) {
+      flagEl.innerHTML = `🏁 ${task.targetDistance}${task.unit}`;
+      flagEl.style.display = this.sim?.is3D ? 'none' : '';
+    }
 
     // Action button visibility
     const runBtn = document.getElementById('btn-track-run-robot');
@@ -477,6 +644,39 @@ class TaskEngine {
       resultCard.classList.add('hidden');
       resultCard.innerHTML = '';
     }
+
+    this.updateCameraUI();
+  }
+
+  /**
+   * Camera switcher shown only when the 3D renderer is active.
+   */
+  updateCameraUI() {
+    const bar = document.getElementById('track-camera-bar');
+    if (!bar) return;
+    const is3D = Boolean(this.sim?.is3D);
+    bar.classList.toggle('hidden', !is3D);
+    if (!is3D) return;
+
+    const t = (k, p) => window.I18N ? window.I18N.t(k, p) : k;
+    const overview = document.getElementById('btn-camera-overview');
+    const follow = document.getElementById('btn-camera-follow');
+    if (overview) {
+      overview.innerText = `🌍 ${t('track_camera_overview')}`;
+      overview.classList.toggle('active', this.sim.cameraMode !== 'follow');
+      overview.setAttribute('aria-pressed', String(this.sim.cameraMode !== 'follow'));
+    }
+    if (follow) {
+      follow.innerText = `🤖 ${t('track_camera_follow')}`;
+      follow.classList.toggle('active', this.sim.cameraMode === 'follow');
+      follow.setAttribute('aria-pressed', String(this.sim.cameraMode === 'follow'));
+    }
+  }
+
+  setCameraMode(mode) {
+    if (!this.sim || !this.sim.is3D || typeof this.sim.setCameraMode !== 'function') return;
+    this.sim.setCameraMode(mode);
+    this.updateCameraUI();
   }
 
   /**
@@ -531,6 +731,9 @@ class TaskEngine {
 
     // Update Track Screen elements if instantiated
     this.updateTrackViewUI();
+    if (this.sim && typeof this.sim.refreshLanguage === 'function') {
+      this.sim.refreshLanguage();
+    }
 
     // Re-render active step in config view
     if (this.polya) {
@@ -538,56 +741,23 @@ class TaskEngine {
     }
   }
 
-  /**
-   * Initialize Canvas Simulation with track length and robot
-   */
-  initSimulation() {
-    const canvas = document.getElementById('robot-canvas');
-    if (!canvas) return;
-
-    if (this.sim) {
-      this.sim.destroy();
-    }
-
-    const task = this.taskConfig;
-    this.sim = new SimulationEngine('robot-canvas', {
-      trackLengthUnits: task.trackLength,
-      unitLabel: task.unit,
-      targetDistance: task.targetDistance,
-      timeScale: task.timeScale || 1.0
-    });
-
-    this.sim.setRobots([{
-      id: 'main_bot',
-      name: 'Alpha Bot',
-      color: '#4f46e5',
-      velocity: task.robotSpeed,
-      startPosUnits: 0,
-      targetUnits: task.targetDistance
-    }]);
-
-    this.sim.onResize = () => {
-      this.updateFlagPosition();
-    };
-
-    this.sim.onTick = (state) => {
-      const bot = this.sim.robots[0];
-      if (bot) {
-        const distEl = document.getElementById('disp-dist');
-        const speedEl = document.getElementById('disp-speed');
-        const timeEl = document.getElementById('disp-time');
-        if (distEl) distEl.innerText = `${bot.position.toFixed(1)} ${task.unit}`;
-        if (speedEl) speedEl.innerText = `${bot.velocity.toFixed(1)} ${task.speedUnit}`;
-        if (timeEl) timeEl.innerText = `${this.sim.elapsedSimTime.toFixed(1)} ${task.timeUnit}`;
-      }
-    };
-  }
-
   updateFlagPosition() {
     const flagEl = document.getElementById('destination-flag');
-    if (flagEl && this.sim && this.taskConfig) {
+    if (!flagEl) return;
+
+    if (this.sim?.is3D) {
+      flagEl.style.display = 'none';
+      return;
+    }
+
+    if (this.sim && this.taskConfig) {
+      flagEl.style.display = '';
       const px = this.sim.unitsToPixels(this.taskConfig.targetDistance);
       flagEl.style.left = `${px}px`;
+      const lineHeight = Math.max(80, (this.sim.height || 0) - 58);
+      if (typeof flagEl.style.setProperty === 'function') {
+        flagEl.style.setProperty('--track-flag-line-height', `${lineHeight}px`);
+      }
     }
   }
 
@@ -1068,6 +1238,12 @@ class TaskEngine {
     const t = (k, p) => window.I18N ? window.I18N.t(k, p) : k;
     const task = this.taskConfig;
 
+    if (!this.sim) {
+      const status = document.getElementById('sim-status-box');
+      if (status) status.innerText = t('track_loading_3d');
+      return;
+    }
+
     // The track may only run with the values explicitly submitted from Step 3.
     const speed = this.studentInputs.step3.speed;
     const time = this.studentInputs.step3.time;
@@ -1140,10 +1316,7 @@ class TaskEngine {
       bot.target = speed * time;
     }
 
-    // Start simulation run
-    this.sim.start();
-
-    // Robot finish handler
+    // Robot finish handler (set before start to avoid a first-frame race)
     this.sim.onFinish = () => {
       const finalDist = Number((speed * time).toFixed(1));
       const targetDist = task.targetDistance;
@@ -1190,6 +1363,7 @@ class TaskEngine {
       // Audio & Mascot Feedback
       if (isMatch) {
         if (window.SoundFX) window.SoundFX.playVictory();
+        if (this.sim && typeof this.sim.celebrate === 'function') this.sim.celebrate();
         const sparkyBubble = document.getElementById('sparky-bubble');
         if (sparkyBubble) sparkyBubble.innerText = t('sparky_victory');
       } else {
@@ -1209,6 +1383,9 @@ class TaskEngine {
         });
       }
     };
+
+    // Start after onFinish is installed (works for 2D and 3D renderers).
+    this.sim.start();
   }
 
   // =========================================================================

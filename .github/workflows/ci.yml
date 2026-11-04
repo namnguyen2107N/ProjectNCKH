@@ -44,6 +44,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify 3D bundle is up to date
+        run: |
+          npm run build:3d
+          git diff --exit-code -- js/simulation-3d.bundle.js
+
       - name: Apply database schema
         run: npm run db:migrate
 

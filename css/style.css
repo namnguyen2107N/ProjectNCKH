@@ -2583,6 +2583,90 @@ body.view-start-screen main#main-view {
   border: 2px solid #e2e8f0;
 }
 
+.track-camera-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 0.8rem;
+  border: 3px solid var(--border-thick);
+  border-radius: var(--radius-full);
+  background: #f8fafc;
+  box-shadow: 0 3px 0 var(--border-thick);
+}
+
+.track-camera-title {
+  margin-right: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.track-camera-btn {
+  border: 2px solid #cbd5e1;
+  border-radius: var(--radius-full);
+  background: white;
+  color: var(--text-main);
+  padding: 0.38rem 0.9rem;
+  font-family: var(--font-family);
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 2px 0 #cbd5e1;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
+}
+
+.track-camera-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 0 #94a3b8;
+}
+
+.track-camera-btn.active {
+  border-color: #4338ca;
+  background: #e0e7ff;
+  color: #3730a3;
+  box-shadow: 0 3px 0 #4338ca;
+}
+
+.sim-3d-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: var(--radius-lg);
+  outline: none;
+}
+
+.sim-3d-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  padding: 1.2rem;
+  background: rgba(7, 9, 28, 0.78);
+  color: #e0e7ff;
+  font-size: 1.08rem;
+  font-weight: 800;
+  text-align: center;
+  backdrop-filter: blur(3px);
+}
+
+.sim-3d-loading-robot {
+  font-size: 3.2rem;
+  line-height: 1;
+  animation: sim-3d-bob 1.8s ease-in-out infinite;
+}
+
+@keyframes sim-3d-bob {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-8px) rotate(3deg); }
+}
+
 .canvas-wrapper,
 .track-canvas-wrapper {
   position: relative;
@@ -2639,7 +2723,7 @@ canvas#robot-canvas {
   left: 50%;
   transform: translateX(-50%);
   width: 3.5px;
-  height: 290px;
+  height: var(--track-flag-line-height, 290px);
   background: repeating-linear-gradient(to bottom, #ef4444, #ef4444 6px, transparent 6px, transparent 12px);
   pointer-events: none;
   opacity: 0.95;
