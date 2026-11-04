@@ -14,6 +14,7 @@ class TaskEngine {
     this._openTrackPromise = null;
     this._openTrackToken = 0;
     this.attemptCount = 0;
+    this.lastRunResult = null;
     this.trackReturnContext = 'step3';
     this.studentInputs = {
       step1: {},
@@ -60,10 +61,17 @@ class TaskEngine {
           validTime: Number.isFinite(time)
         });
       }
-      alert(t('s3_val_error'));
+      const errorBox = document.getElementById('s3-error-box');
+      if (errorBox) {
+        errorBox.innerText = t('s3_val_error');
+        errorBox.classList.remove('hidden');
+      }
       return;
     }
 
+    const errorBox = document.getElementById('s3-error-box');
+    if (errorBox) errorBox.classList.add('hidden');
+    this.lastRunResult = null;
     this.studentInputs.step3 = { speed, time };
     this.openTrackView('step3');
   }
@@ -73,7 +81,11 @@ class TaskEngine {
     const time = this.studentInputs.step3.time;
     if (!Number.isFinite(speed) || speed <= 0 || !Number.isFinite(time) || time <= 0) {
       const t = (key, params) => window.I18N ? window.I18N.t(key, params) : key;
-      alert(t('s3_val_error'));
+      const status = document.getElementById('sim-status-box');
+      if (status) {
+        status.classList.add('is-error');
+        status.innerText = t('s3_val_error');
+      }
       return;
     }
 
@@ -103,6 +115,7 @@ class TaskEngine {
 
     this.taskConfig = taskConfig;
     this.attemptCount = 0;
+    this.lastRunResult = null;
     this.trackReturnContext = 'step3';
     this.studentInputs = { step1: {}, step2: {}, step3: {}, step4: {} };
 
@@ -615,11 +628,9 @@ class TaskEngine {
     if (lblDist) lblDist.innerText = t('sim_dist_label');
 
     const speedDisp = document.getElementById('disp-speed');
-    const timeDisp = document.getElementById('disp-time');
-    const distDisp = document.getElementById('disp-dist');
-    if (speedDisp) speedDisp.innerText = hasValidParameters ? `${speed.toFixed(1)} ${task.speedUnit}` : `-- ${task.speedUnit}`;
-    if (timeDisp) timeDisp.innerText = `0.0 ${task.timeUnit}`;
-    if (distDisp) distDisp.innerText = `0.0 ${task.unit}`;
+    if (speedDisp) {
+      speedDisp.innerText = hasValidParameters ? `${speed.toFixed(1)} ${task.speedUnit}` : `-- ${task.speedUnit}`;
+    }
 
     // Target pill
     const targetPill = document.getElementById('track-target-pill');
@@ -632,34 +643,100 @@ class TaskEngine {
       flagEl.style.display = this.sim?.is3D ? 'none' : '';
     }
 
-    // Action button visibility
     const runBtn = document.getElementById('btn-track-run-robot');
     const rerunBtn = document.getElementById('btn-track-rerun');
     const contBtn = document.getElementById('btn-track-go-step4');
     const statusBox = document.getElementById('sim-status-box');
     const resultCard = document.getElementById('track-result-card');
 
-    if (runBtn) {
-      runBtn.disabled = !hasValidParameters;
-      runBtn.innerText = t('track_btn_run');
-      runBtn.classList.remove('hidden');
-    }
-    if (rerunBtn) rerunBtn.classList.add('hidden');
-    if (contBtn) {
-      if (this.trackReturnContext === 'step4' && this.polya && this.polya.stepCompleted[3] && hasValidParameters) {
-        contBtn.classList.remove('hidden');
-        contBtn.innerText = t('track_btn_continue_step4');
-      } else {
-        contBtn.classList.add('hidden');
+    if (this.lastRunResult) {
+      // A completed run survives language changes and revisiting the track.
+      this.renderTrackResult(this.lastRunResult, false);
+    } else {
+      const timeDisp = document.getElementById('disp-time');
+      const distDisp = document.getElementById('disp-dist');
+      if (timeDisp) timeDisp.innerText = `0.0 ${task.timeUnit}`;
+      if (distDisp) distDisp.innerText = `0.0 ${task.unit}`;
+
+      if (runBtn) {
+        runBtn.disabled = !hasValidParameters;
+        runBtn.innerText = t('track_btn_run');
+        runBtn.classList.remove('hidden');
       }
-    }
-    if (statusBox) statusBox.innerText = hasValidParameters ? t('track_status_ready') : t('s3_val_error');
-    if (resultCard) {
-      resultCard.classList.add('hidden');
-      resultCard.innerHTML = '';
+      if (rerunBtn) rerunBtn.classList.add('hidden');
+      if (contBtn) {
+        if (this.trackReturnContext === 'step4' && this.polya && this.polya.stepCompleted[3] && hasValidParameters) {
+          contBtn.classList.remove('hidden');
+          contBtn.innerText = t('track_btn_continue_step4');
+        } else {
+          contBtn.classList.add('hidden');
+        }
+      }
+      if (statusBox) {
+        statusBox.classList.remove('is-error');
+        statusBox.innerText = hasValidParameters ? t('track_status_ready') : t('s3_val_error');
+      }
+      if (resultCard) {
+        resultCard.className = 'track-result-card hidden';
+        resultCard.innerHTML = '';
+      }
     }
 
     this.updateCameraUI();
+  }
+
+  /**
+   * Render a completed run. Kept separate so language changes and Step 4
+   * revisits do not wipe the student's result.
+   */
+  renderTrackResult(result, animate = false) {
+    const task = this.taskConfig;
+    if (!task || !result) return;
+    const t = (k, p) => window.I18N ? window.I18N.t(k, p) : k;
+    const { speed, time, finalDist, targetDist, isMatch } = result;
+
+    const speedDisp = document.getElementById('disp-speed');
+    const timeDisp = document.getElementById('disp-time');
+    const distDisp = document.getElementById('disp-dist');
+    if (speedDisp) speedDisp.innerText = `${Number(speed).toFixed(1)} ${task.speedUnit}`;
+    if (timeDisp) timeDisp.innerText = `${Number(time).toFixed(1)} ${task.timeUnit}`;
+    if (distDisp) distDisp.innerText = `${Number(finalDist).toFixed(1)} ${task.unit}`;
+
+    const statusBox = document.getElementById('sim-status-box');
+    if (statusBox) {
+      statusBox.classList.remove('is-error');
+      statusBox.innerHTML = t('track_status_finished', { dist: finalDist, unit: task.unit });
+    }
+
+    const resultCard = document.getElementById('track-result-card');
+    if (resultCard) {
+      resultCard.classList.remove('hidden');
+      resultCard.className = `track-result-card ${isMatch ? 'result-success' : 'result-warning'}${animate ? ' animate-fade-in' : ''}`;
+      resultCard.innerHTML = `
+        <div class="result-icon">${isMatch ? '🏆' : '⚠️'}</div>
+        <div class="result-details">
+          <div class="result-heading">${isMatch ? t('track_result_match', { dist: finalDist, unit: task.unit }) : t('track_result_mismatch', { dist: finalDist, unit: task.unit, target: targetDist })}</div>
+          <div class="result-meta">${t('s3_obs_traveled', { dist: finalDist, time })} &bull; ${t('s3_obs_target', { target: targetDist })}</div>
+        </div>
+      `;
+    }
+
+    const runBtn = document.getElementById('btn-track-run-robot');
+    const rerunBtn = document.getElementById('btn-track-rerun');
+    const contBtn = document.getElementById('btn-track-go-step4');
+    if (runBtn) {
+      runBtn.classList.add('hidden');
+      runBtn.disabled = false;
+      runBtn.innerText = t('track_btn_run');
+    }
+    if (rerunBtn) {
+      rerunBtn.classList.remove('hidden');
+      rerunBtn.innerText = t('track_btn_rerun');
+    }
+    if (contBtn) {
+      contBtn.classList.remove('hidden');
+      contBtn.innerText = t('track_btn_continue_step4');
+    }
   }
 
   /**
@@ -1213,6 +1290,8 @@ class TaskEngine {
           </div>
         </div>
 
+        <div class="step-error-box hidden" id="s3-error-box" role="alert"></div>
+
         <div class="step-actions">
           <button type="button" class="btn-secondary" id="btn-back-step-2">${t('s3_btn_back')}</button>
           <button type="button" class="btn-action-run btn-open-track ${trackReadyInitially ? '' : 'hidden'}" id="btn-open-track">
@@ -1245,6 +1324,8 @@ class TaskEngine {
       return Number.isFinite(parsed) && parsed > 0 ? parsed : NaN;
     };
     const syncOpenTrackButton = () => {
+      const errorBox = document.getElementById('s3-error-box');
+      if (errorBox) errorBox.classList.add('hidden');
       const speed = resolveParameter(
         document.getElementById('param-speed-entry'),
         document.getElementById('param-speed'),
@@ -1303,12 +1384,27 @@ class TaskEngine {
         });
       }
       const runBtn = document.getElementById('btn-track-run-robot');
+      const rerunBtn = document.getElementById('btn-track-rerun');
+      const contBtn = document.getElementById('btn-track-go-step4');
+      const status = document.getElementById('sim-status-box');
+      const result = document.getElementById('track-result-card');
+      this.lastRunResult = null;
       if (runBtn) runBtn.disabled = true;
-      alert(t('s3_val_error'));
+      if (rerunBtn) rerunBtn.classList.add('hidden');
+      if (contBtn) contBtn.classList.add('hidden');
+      if (result) {
+        result.className = 'track-result-card hidden';
+        result.innerHTML = '';
+      }
+      if (status) {
+        status.classList.add('is-error');
+        status.innerText = t('s3_val_error');
+      }
       return;
     }
 
     this.attemptCount++;
+    this.lastRunResult = null;
     this.studentInputs.step3 = { speed, time };
 
     // Update readout displays immediately
@@ -1332,6 +1428,7 @@ class TaskEngine {
 
     const statusBox = document.getElementById('sim-status-box');
     if (statusBox) {
+      statusBox.classList.remove('is-error');
       statusBox.innerText = t('track_status_running', {
         speed: speed.toFixed(1),
         speedUnit: task.speedUnit,
@@ -1369,42 +1466,15 @@ class TaskEngine {
       const discrepancy = Number((finalDist - targetDist).toFixed(1));
       const isMatch = Math.abs(discrepancy) < 0.01;
 
-      // Update observation readout
-      if (distDisp) distDisp.innerText = `${finalDist.toFixed(1)} ${task.unit}`;
-      if (timeDisp) timeDisp.innerText = `${time.toFixed(1)} ${task.timeUnit}`;
-
-      // Status text
-      if (statusBox) {
-        statusBox.innerHTML = t('track_status_finished', { dist: finalDist, unit: task.unit });
-      }
-
-      // Show Result Feedback Card on Track Screen
-      if (resultCard) {
-        resultCard.classList.remove('hidden');
-        resultCard.className = `track-result-card ${isMatch ? 'result-success' : 'result-warning'} animate-fade-in`;
-        resultCard.innerHTML = `
-          <div class="result-icon">${isMatch ? '🏆' : '⚠️'}</div>
-          <div class="result-details">
-            <div class="result-heading">${isMatch ? t('track_result_match', { dist: finalDist, unit: task.unit }) : t('track_result_mismatch', { dist: finalDist, unit: task.unit, target: targetDist })}</div>
-            <div class="result-meta">${t('s3_obs_traveled', { dist: finalDist, time })} &bull; ${t('s3_obs_target', { target: targetDist })}</div>
-          </div>
-        `;
-      }
-
-      // Controls update: show rerun and continue to step 4
-      if (runBtn) {
-        runBtn.classList.add('hidden');
-        runBtn.disabled = false;
-        runBtn.innerText = t('track_btn_run');
-      }
-      if (rerunBtn) {
-        rerunBtn.classList.remove('hidden');
-        rerunBtn.innerText = t('track_btn_rerun');
-      }
-      if (contBtn) {
-        contBtn.classList.remove('hidden');
-        contBtn.innerText = t('track_btn_continue_step4');
-      }
+      this.lastRunResult = {
+        speed,
+        time,
+        finalDist,
+        targetDist,
+        discrepancy,
+        isMatch
+      };
+      this.renderTrackResult(this.lastRunResult, true);
 
       // Audio & Mascot Feedback
       if (isMatch) {
@@ -1468,6 +1538,7 @@ class TaskEngine {
         </div>
 
         <!-- Sub-flow depending on Yes / No -->
+        <div class="step-error-box hidden" id="s4-error-box" role="alert"></div>
         <div id="lookback-subflow">
           <!-- Rendered dynamically below -->
         </div>
@@ -1570,9 +1641,15 @@ class TaskEngine {
     const observedSpeed = this.studentInputs.step3.speed;
     const observedTime = this.studentInputs.step3.time;
     if (!Number.isFinite(observedSpeed) || observedSpeed <= 0 || !Number.isFinite(observedTime) || observedTime <= 0) {
-      alert(t('s3_val_error'));
+      const errorBox = document.getElementById('s4-error-box');
+      if (errorBox) {
+        errorBox.innerText = t('s3_val_error');
+        errorBox.classList.remove('hidden');
+      }
       return;
     }
+    const errorBox = document.getElementById('s4-error-box');
+    if (errorBox) errorBox.classList.add('hidden');
 
     this.studentInputs.step4.checkResult = choice;
     const observedDistance = Number((observedSpeed * observedTime).toFixed(1));
@@ -1615,7 +1692,7 @@ class TaskEngine {
               <strong>${s4.reflectionPromptEn}</strong>
               ${isVi ? `<div class="text-muted small">${s4.reflectionPromptVi}</div>` : ''}
             </label>
-            <textarea id="input-reflection" class="input-textarea" rows="2" placeholder="${t('s4_refl_placeholder')}">${this.studentInputs.step4.reflection || ''}</textarea>
+            <textarea id="input-reflection" class="input-textarea" rows="2" placeholder="${t('s4_refl_placeholder')}"></textarea>
           </div>
         </div>
       `;
@@ -1625,6 +1702,11 @@ class TaskEngine {
           ${t('s4_btn_complete')}
         </button>
       `;
+
+      const reflectionInput = document.getElementById('input-reflection');
+      if (reflectionInput) {
+        reflectionInput.value = this.studentInputs.step4.reflection || '';
+      }
 
       document.getElementById('btn-complete-mission').onclick = () => {
         const refl = document.getElementById('input-reflection')?.value || '';
@@ -1740,9 +1822,23 @@ class TaskEngine {
     const revisedVal = rawRevised ? Number(rawRevised.replace(',', '.')) : NaN;
 
     if (!Number.isFinite(revisedVal) || revisedVal <= 0) {
-      alert(t('s4_input_error'));
+      const errorBox = document.getElementById('s4-error-box');
+      if (errorBox) {
+        errorBox.innerText = t('s4_input_error');
+        errorBox.classList.remove('hidden');
+      }
       return;
     }
+    if (!discId || !diagId) {
+      const errorBox = document.getElementById('s4-error-box');
+      if (errorBox) {
+        errorBox.innerText = t('s4_choice_error');
+        errorBox.classList.remove('hidden');
+      }
+      return;
+    }
+    const errorBox = document.getElementById('s4-error-box');
+    if (errorBox) errorBox.classList.add('hidden');
 
     this.studentInputs.step4.discrepancyId = discId;
     this.studentInputs.step4.diagnosisId = diagId;

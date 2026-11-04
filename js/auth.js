@@ -524,9 +524,16 @@
       logout.textContent = t.logout;
       logout.addEventListener('click', onLogoutClick);
 
+      const error = document.createElement('div');
+      error.id = 'rml-account-error';
+      error.className = 'rml-auth-error';
+      error.setAttribute('role', 'alert');
+      error.hidden = true;
+
       actions.appendChild(logout);
       panel.appendChild(labelWrap);
       panel.appendChild(actions);
+      panel.appendChild(error);
       body.appendChild(panel);
     }
 
@@ -552,9 +559,18 @@
     }
   }
 
+  function showAccountError(message) {
+    const error = document.getElementById('rml-account-error');
+    if (!error) return;
+    error.textContent = message;
+    error.hidden = false;
+  }
+
   async function onLogoutClick(event) {
     const button = event.currentTarget;
     if (!window.confirm(t.logoutConfirm)) return;
+    const error = document.getElementById('rml-account-error');
+    if (error) error.hidden = true;
     button.disabled = true;
     try {
       const { response } = await api(`${AUTH_BASE}/logout`, {
@@ -562,12 +578,12 @@
         headers: { 'X-CSRF-Token': state.csrf || '' },
       });
       if (!response.ok && response.status !== 401) {
-        window.alert(t.logoutFailed);
+        showAccountError(t.logoutFailed);
         button.disabled = false;
         return;
       }
     } catch {
-      window.alert(t.logoutFailed);
+      showAccountError(t.logoutFailed);
       button.disabled = false;
       return;
     }
