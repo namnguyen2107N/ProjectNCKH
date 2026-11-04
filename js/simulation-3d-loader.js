@@ -5,7 +5,11 @@
 (function () {
   'use strict';
 
-  const params = new URLSearchParams(window.location.search);
+  // Capture script location synchronously during parsing
+  const currentScriptEl = typeof document !== 'undefined' ? document.currentScript : null;
+  const scriptBaseUrl = currentScriptEl && currentScriptEl.src ? currentScriptEl.src : null;
+
+  const params = typeof window !== 'undefined' && window.location ? new URLSearchParams(window.location.search) : new URLSearchParams();
   let storedMode = null;
   try {
     storedMode = localStorage.getItem('rml_sim_mode');
@@ -37,6 +41,56 @@
     }
   }
 
+  function resolveBundleUrls() {
+    const urls = [];
+    // 1. Relative to this loader script file (e.g. /js/simulation-3d-loader.js -> /js/simulation-3d.bundle.js)
+    if (scriptBaseUrl) {
+      try {
+        urls.push(new URL('simulation-3d.bundle.js', scriptBaseUrl).href);
+      } catch (_) {}
+    }
+    // 2. Locate loader script element if document.currentScript was null (e.g. async/deferred)
+    if (typeof document !== 'undefined') {
+      const el = document.querySelector('script[src*="simulation-3d-loader"]');
+      if (el && el.src) {
+        try {
+          const u = new URL('simulation-3d.bundle.js', el.src).href;
+          if (!urls.includes(u)) urls.push(u);
+        } catch (_) {}
+      }
+      // 3. Document base with explicit /js/ subpath
+      try {
+        const u = new URL('./js/simulation-3d.bundle.js', document.baseURI || window.location.href).href;
+        if (!urls.includes(u)) urls.push(u);
+      } catch (_) {}
+      try {
+        const u = new URL('js/simulation-3d.bundle.js', document.baseURI || window.location.href).href;
+        if (!urls.includes(u)) urls.push(u);
+      } catch (_) {}
+    }
+    // 4. Relative fallbacks
+    urls.push('./js/simulation-3d.bundle.js');
+    urls.push('./simulation-3d.bundle.js');
+    return urls;
+  }
+
+  async function importBundle() {
+    const candidates = resolveBundleUrls();
+    let lastError = null;
+
+    for (const url of candidates) {
+      try {
+        const module = await import(url);
+        const Engine = module.Simulation3DEngine || (typeof window !== 'undefined' ? window.Simulation3DEngine : null);
+        if (Engine) return Engine;
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    throw lastError || new Error('Could not load simulation-3d.bundle.js from any candidate path');
+  }
+
   function load() {
     if (state.engine) return Promise.resolve(state.engine);
     if (!enabled) return Promise.reject(new Error('3D mode disabled by ?sim=2d'));
@@ -44,12 +98,12 @@
     if (state.failed) return Promise.reject(state.error || new Error('3D module failed'));
     if (state.promise) return state.promise;
 
-    state.promise = import('./simulation-3d.bundle.js')
-      .then((module) => {
-        const Engine = module.Simulation3DEngine || window.Simulation3DEngine;
-        if (!Engine) throw new Error('Simulation3DEngine export missing');
+    state.promise = importBundle()
+      .then((Engine) => {
         state.engine = Engine;
-        window.Simulation3DEngine = Engine;
+        if (typeof window !== 'undefined') {
+          window.Simulation3DEngine = Engine;
+        }
         return Engine;
       })
       .catch((error) => {

@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Robot Math Lab - Môi trường Kiểm thử Mô phỏng 3D</title>
+  <meta name="description"
+    content="Môi trường thử nghiệm trực tiếp hệ thống mô phỏng 3D Space Lab của Robot Math Lab." />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=Lexend:wght@400;500;600;700;800&family=Baloo+2:wght@600;700;800&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤖</text></svg>">
+
+  <style>
+    body.test-3d-page {
+      background: #070a14;
+      color: #e2e8f0;
+      font-family: 'Lexend', 'Be Vietnam Pro', sans-serif;
+      min-height: 100vh;
+      margin: 0;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+    }
+
+    .test-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 12px 20px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      margin-bottom: 16px;
+    }
+
+    .test-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .test-brand .robot-logo {
+      font-size: 28px;
+    }
+
+    .test-brand h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #f8fafc;
+      letter-spacing: -0.02em;
+    }
+
+    .test-brand p {
+      margin: 0;
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+
+    .test-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .badge-ok {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .badge-warn {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .badge-err {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .btn-test-action {
+      padding: 8px 16px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-test-home {
+      background: #1e293b;
+      color: #f8fafc;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-test-home:hover {
+      background: #334155;
+    }
+
+    .btn-test-lang {
+      background: #312e81;
+      color: #c7d2fe;
+      border: 1px solid #4338ca;
+    }
+
+    .btn-test-lang:hover {
+      background: #3730a3;
+    }
+
+    .test-main-grid {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 16px;
+      flex: 1;
+    }
+
+    @media (max-width: 960px) {
+      .test-main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .test-stage-col {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .test-3d-card {
+      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #test-canvas-container {
+      position: relative;
+      width: 100%;
+      height: 480px;
+      border-radius: 16px;
+      overflow: hidden;
+      background: radial-gradient(circle at center, #111827 0%, #030712 100%);
+      border: 1px solid rgba(99, 102, 241, 0.2);
+    }
+
+    .test-telemetry-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .telemetry-item {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 14px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .telemetry-item.highlight {
+      background: rgba(79, 70, 229, 0.2);
+      border-color: rgba(99, 102, 241, 0.4);
+    }
+
+    .telemetry-label {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      font-weight: 700;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .telemetry-val {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #38bdf8;
+      font-family: 'Baloo 2', sans-serif;
+    }
+
+    .test-controls-col {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .control-section {
+      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      padding: 16px;
+    }
+
+    .control-section h2 {
+      margin: 0 0 12px 0;
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #f1f5f9;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-group label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+    }
+
+    .form-group input[type="number"],
+    .form-group input[type="range"] {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .form-group input[type="number"] {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #f8fafc;
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .btn-presets-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .btn-preset {
+      padding: 8px 10px;
+      background: #1e293b;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-preset:hover,
+    .btn-preset.active {
+      background: #4f46e5;
+      border-color: #6366f1;
+      color: #fff;
+    }
+
+    .btn-run-big {
+      width: 100%;
+      padding: 12px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #fff;
+      font-weight: 800;
+      font-size: 1rem;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .btn-run-big:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+    }
+
+    .btn-sub-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .btn-sub-act {
+      padding: 10px;
+      border-radius: 12px;
+      background: #1e293b;
+      color: #cbd5e1;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-sub-act:hover {
+      background: #334155;
+      color: #fff;
+    }
+
+    .color-picker-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .color-swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .color-swatch.active {
+      transform: scale(1.15);
+      border-color: #fff;
+    }
+
+    .test-notes {
+      font-size: 0.78rem;
+      color: #64748b;
+      line-height: 1.5;
+      margin-top: 8px;
+    }
+
+    .status-msg-box {
+      margin-top: 10px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: rgba(30, 41, 59, 0.6);
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-align: center;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+
+<body class="test-3d-page">
+
+  <!-- Header -->
+  <header class="test-header">
+    <div class="test-brand">
+      <span class="robot-logo">🤖</span>
+      <div>
+        <h1 id="txt-title">Robot Math Lab — 3D Space Lab Test Environment</h1>
+        <p id="txt-subtitle">Môi trường kiểm thử trực tiếp hệ thống mô phỏng đồ họa 3D Space Lab</p>
+      </div>
+    </div>
+    <div class="test-header-actions">
+      <span id="badge-webgl" class="badge-status badge-warn">Đang kiểm tra WebGL...</span>
+      <button type="button" class="btn-test-action btn-test-lang" id="btn-lang-toggle">EN</button>
+      <a href="index.html" class="btn-test-action btn-test-home">🏠 <span id="txt-btn-home">Về Phòng Học</span></a>
+    </div>
+  </header>
+
+  <!-- Main Grid -->
+  <main class="test-main-grid">
+
+    <!-- Left Stage Column -->
+    <div class="test-stage-col">
+      <div class="test-3d-card">
+
+        <!-- Camera Toolbar -->
+        <div class="track-camera-bar" style="margin-bottom: 12px;">
+          <span class="track-camera-title">🎥 <span id="txt-cam-title">Góc nhìn</span></span>
+          <button type="button" class="track-camera-btn active" id="btn-cam-overview">🌍 <span id="txt-cam-overview">Toàn cảnh</span></button>
+          <button type="button" class="track-camera-btn" id="btn-cam-follow">🤖 <span id="txt-cam-follow">Theo robot</span></button>
+          <span class="track-camera-divider" aria-hidden="true"></span>
+          <button type="button" class="track-camera-btn track-camera-icon" id="btn-cam-rot-l" title="Xoay trái">↺</button>
+          <button type="button" class="track-camera-btn track-camera-icon" id="btn-cam-rot-r" title="Xoay phải">↻</button>
+          <button type="button" class="track-camera-btn track-camera-icon" id="btn-cam-reset" title="Đặt lại góc nhìn">⌂</button>
+          <span class="track-camera-hint">🖐 <span id="txt-cam-hint">Kéo trên cảnh để xoay tự do</span></span>
+        </div>
+
+        <!-- 3D Canvas Host -->
+        <div id="test-canvas-container"></div>
+
+        <!-- Readout Bar -->
+        <div class="test-telemetry-bar">
+          <div class="telemetry-item">
+            <span class="telemetry-label" id="lbl-speed">Vận tốc (v)</span>
+            <span class="telemetry-val" id="disp-speed">0.0 m/s</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="telemetry-label" id="lbl-time">Thời gian (t)</span>
+            <span class="telemetry-val" id="disp-time">0.0 s</span>
+          </div>
+          <div class="telemetry-item highlight">
+            <span class="telemetry-label" id="lbl-dist">Quãng đường (s)</span>
+            <span class="telemetry-val" id="disp-dist">0.0 m</span>
+          </div>
+        </div>
+
+        <div class="status-msg-box" id="disp-status">Sẵn sàng chạy thử nghiệm 3D</div>
+      </div>
+    </div>
+
+    <!-- Right Controls Column -->
+    <div class="test-controls-col">
+
+      <!-- Preset Selection -->
+      <div class="control-section">
+        <h2>🎯 <span id="txt-sec-preset">Bài học mẫu (Presets)</span></h2>
+        <div class="btn-presets-grid">
+          <button type="button" class="btn-preset active" data-task="task1">Task 1 (42m)</button>
+          <button type="button" class="btn-preset" data-task="task2">Task 2 (1.2km)</button>
+          <button type="button" class="btn-preset" data-task="task3">Task 3 (1.5km)</button>
+          <button type="button" class="btn-preset" data-task="custom">Tự chọn</button>
+        </div>
+
+        <!-- Parameter inputs -->
+        <div class="form-group">
+          <label>
+            <span id="txt-p-track">Chiều dài đường đua (s_max)</span>
+            <span id="val-track">50 m</span>
+          </label>
+          <input type="number" id="in-track" min="10" max="5000" value="50" step="10" />
+        </div>
+
+        <div class="form-group">
+          <label>
+            <span id="txt-p-target">Vị trí đích (Target)</span>
+            <span id="val-target">42 m</span>
+          </label>
+          <input type="number" id="in-target" min="5" max="5000" value="42" step="1" />
+        </div>
+
+        <div class="form-group">
+          <label>
+            <span id="txt-p-speed">Vận tốc Sparky (v)</span>
+            <span id="val-speed">7 m/s</span>
+          </label>
+          <input type="number" id="in-speed" min="1" max="200" value="7" step="1" />
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="control-section">
+        <h2>⚡ <span id="txt-sec-actions">Điều khiển mô phỏng</span></h2>
+        <button type="button" class="btn-run-big" id="btn-run">
+          ▶ <span id="txt-btn-run">BẮT ĐẦU CHẠY 3D</span>
+        </button>
+        <div class="btn-sub-actions">
+          <button type="button" class="btn-sub-act" id="btn-pause">⏸ <span id="txt-btn-pause">Tạm dừng</span></button>
+          <button type="button" class="btn-sub-act" id="btn-reset">↺ <span id="txt-btn-reset">Đặt lại</span></button>
+        </div>
+      </div>
+
+      <!-- Robot Customization -->
+      <div class="control-section">
+        <h2>🎨 <span id="txt-sec-robot">Tùy chỉnh Robot Sparky</span></h2>
+        <div class="form-group">
+          <label><span id="txt-robot-color">Màu sắc thân robot:</span></label>
+          <div class="color-picker-row">
+            <button type="button" class="color-swatch active" style="background: #4f46e5;" data-color="#4f46e5" title="Indigo"></button>
+            <button type="button" class="color-swatch" style="background: #06b6d4;" data-color="#06b6d4" title="Cyan"></button>
+            <button type="button" class="color-swatch" style="background: #10b981;" data-color="#10b981" title="Emerald"></button>
+            <button type="button" class="color-swatch" style="background: #f59e0b;" data-color="#f59e0b" title="Amber"></button>
+            <button type="button" class="color-swatch" style="background: #ec4899;" data-color="#ec4899" title="Pink"></button>
+          </div>
+        </div>
+        <div class="btn-sub-actions">
+          <button type="button" class="btn-sub-act" id="btn-cheer">✨ Cổ vũ (Cheer)</button>
+          <button type="button" class="btn-sub-act" id="btn-smile">😊 Cười (Smile)</button>
+        </div>
+        <p class="test-notes" id="txt-notes">
+          Môi trường 3D sử dụng Three.js (WebGL2) với mô hình low-poly procedural độc lập, hoạt động hoàn toàn trên trình duyệt mà không cần tải file 3D ngoài.
+        </p>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Core Scripts -->
+  <script src="js/kinematics-model.js"></script>
+  <script src="js/simulation-3d-loader.js"></script>
+
+  <script>
+    (function () {
+      'use strict';
+
+      let currentLang = 'vi';
+      let engine = null;
+      let isRunning = false;
+      let isPaused = false;
+      let currentColor = '#4f46e5';
+
+      const PRESETS = {
+        task1: { track: 50, target: 42, speed: 7, unit: 'm', speedUnit: 'm/s' },
+        task2: { track: 1400, target: 1200, speed: 40, unit: 'm', speedUnit: 'm/s' },
+        task3: { track: 1700, target: 1500, speed: 50, unit: 'm', speedUnit: 'm/s' },
+        custom: { track: 100, target: 80, speed: 10, unit: 'm', speedUnit: 'm/s' },
+      };
+
+      let activeConfig = { ...PRESETS.task1 };
+
+      const I18N = {
+        vi: {
+          title: 'Robot Math Lab — Môi trường Kiểm thử Mô phỏng 3D',
+          subtitle: 'Môi trường kiểm thử trực tiếp hệ thống mô phỏng đồ họa 3D Space Lab',
+          home: 'Về Phòng Học',
+          webgl_ok: 'WebGL2 Hoạt động',
+          webgl_err: 'Không hỗ trợ WebGL2',
+          cam_title: 'Góc nhìn',
+          cam_overview: 'Toàn cảnh',
+          cam_follow: 'Theo robot',
+          cam_hint: 'Kéo trên cảnh để xoay tự do',
+          speed: 'Vận tốc (v)',
+          time: 'Thời gian (t)',
+          dist: 'Quãng đường (s)',
+          ready: 'Sẵn sàng chạy thử nghiệm 3D',
+          running: '🚀 Sparky đang di chuyển trên đường đua 3D...',
+          paused: '⏸ Tạm dừng mô phỏng',
+          finished: '🏁 Sparky đã về đích an toàn!',
+          sec_preset: 'Bài học mẫu (Presets)',
+          sec_actions: 'Điều khiển mô phỏng',
+          sec_robot: 'Tùy chỉnh Robot Sparky',
+          btn_run: 'BẮT ĐẦU CHẠY 3D',
+          btn_pause: 'Tạm dừng',
+          btn_resume: 'Tiếp tục',
+          btn_reset: 'Đặt lại',
+          robot_color: 'Màu sắc thân robot:',
+          p_track: 'Chiều dài đường đua (s_max)',
+          p_target: 'Vị trí đích (Target)',
+          p_speed: 'Vận tốc Sparky (v)',
+          notes: 'Môi trường 3D sử dụng Three.js (WebGL2) với mô hình low-poly procedural độc lập, hoạt động hoàn toàn trên trình duyệt mà không cần tải file 3D ngoài.',
+        },
+        en: {
+          title: 'Robot Math Lab — 3D Space Lab Test Environment',
+          subtitle: 'Direct interactive test sandbox for Space Lab 3D simulation renderer',
+          home: 'Back to Lab',
+          webgl_ok: 'WebGL2 Active',
+          webgl_err: 'WebGL2 Not Supported',
+          cam_title: 'Camera',
+          cam_overview: 'Overview',
+          cam_follow: 'Follow Bot',
+          cam_hint: 'Drag on canvas to orbit freely',
+          speed: 'Speed (v)',
+          time: 'Time (t)',
+          dist: 'Distance (s)',
+          ready: 'Ready for 3D simulation test',
+          running: '🚀 Sparky is navigating the 3D Space Lab track...',
+          paused: '⏸ Simulation paused',
+          finished: '🏁 Sparky reached destination safely!',
+          sec_preset: 'Task Presets',
+          sec_actions: 'Simulation Controls',
+          sec_robot: 'Customize Robot Sparky',
+          btn_run: 'START 3D SIMULATION',
+          btn_pause: 'Pause',
+          btn_resume: 'Resume',
+          btn_reset: 'Reset',
+          robot_color: 'Robot body color:',
+          p_track: 'Track Length (s_max)',
+          p_target: 'Target Distance',
+          p_speed: 'Sparky Velocity (v)',
+          notes: '3D Space Lab uses Three.js (WebGL2) with lightweight procedural low-poly models, fully self-contained without external asset downloads.',
+        }
+      };
+
+      function updateI18N() {
+        const t = I18N[currentLang];
+        document.getElementById('txt-title').textContent = t.title;
+        document.getElementById('txt-subtitle').textContent = t.subtitle;
+        document.getElementById('txt-btn-home').textContent = t.home;
+        document.getElementById('btn-lang-toggle').textContent = currentLang === 'vi' ? 'EN' : 'VIE';
+        document.getElementById('txt-cam-title').textContent = t.cam_title;
+        document.getElementById('txt-cam-overview').textContent = t.cam_overview;
+        document.getElementById('txt-cam-follow').textContent = t.cam_follow;
+        document.getElementById('txt-cam-hint').textContent = t.cam_hint;
+        document.getElementById('lbl-speed').textContent = t.speed;
+        document.getElementById('lbl-time').textContent = t.time;
+        document.getElementById('lbl-dist').textContent = t.dist;
+        document.getElementById('txt-sec-preset').textContent = t.sec_preset;
+        document.getElementById('txt-sec-actions').textContent = t.sec_actions;
+        document.getElementById('txt-sec-robot').textContent = t.sec_robot;
+        document.getElementById('txt-btn-run').textContent = t.btn_run;
+        document.getElementById('txt-btn-pause').textContent = isPaused ? t.btn_resume : t.btn_pause;
+        document.getElementById('txt-btn-reset').textContent = t.btn_reset;
+        document.getElementById('txt-robot-color').textContent = t.robot_color;
+        document.getElementById('txt-p-track').textContent = t.p_track;
+        document.getElementById('txt-p-target').textContent = t.p_target;
+        document.getElementById('txt-p-speed').textContent = t.p_speed;
+        document.getElementById('txt-notes').textContent = t.notes;
+
+        if (engine && typeof engine.setLanguage === 'function') {
+          engine.setLanguage(currentLang);
+        }
+      }
+
+      function initEngine() {
+        const container = document.getElementById('test-canvas-container');
+        if (!container) return;
+
+        if (engine) {
+          try { engine.destroy(); } catch (_) { }
+          engine = null;
+        }
+
+        const Engine3D = window.Simulation3DEngine;
+        if (!Engine3D) {
+          document.getElementById('disp-status').textContent = 'Error: Simulation3DEngine is not loaded.';
+          return;
+        }
+
+        engine = new Engine3D('test-canvas-container', {
+          trackLengthUnits: activeConfig.track,
+          targetDistance: activeConfig.target,
+          unitLabel: activeConfig.unit || 'm',
+          timeScale: 1.0,
+        });
+
+        engine.setRobots([{
+          id: 'main_bot',
+          name: 'Sparky Bot',
+          color: currentColor,
+          velocity: activeConfig.speed,
+          startPosUnits: 0,
+          targetUnits: activeConfig.target,
+        }]);
+
+        engine.onTick = (elapsedSeconds, robots) => {
+          const bot = robots && robots[0];
+          if (!bot) return;
+
+          document.getElementById('disp-dist').textContent = `${bot.position.toFixed(1)} ${activeConfig.unit}`;
+          document.getElementById('disp-speed').textContent = `${bot.velocity.toFixed(1)} ${activeConfig.speedUnit}`;
+          document.getElementById('disp-time').textContent = `${elapsedSeconds.toFixed(1)} s`;
+
+          if (bot.isFinished) {
+            isRunning = false;
+            isPaused = false;
+            document.getElementById('disp-status').textContent = I18N[currentLang].finished;
+            document.getElementById('btn-run').disabled = false;
+            document.getElementById('txt-btn-run').textContent = I18N[currentLang].btn_run;
+          }
+        };
+
+        if (typeof engine.setLanguage === 'function') {
+          engine.setLanguage(currentLang);
+        }
+
+        resetTelemetry();
+      }
+
+      function resetTelemetry() {
+        document.getElementById('disp-dist').textContent = `0.0 ${activeConfig.unit}`;
+        document.getElementById('disp-speed').textContent = `${activeConfig.speed.toFixed(1)} ${activeConfig.speedUnit}`;
+        document.getElementById('disp-time').textContent = `0.0 s`;
+        document.getElementById('disp-status').textContent = I18N[currentLang].ready;
+      }
+
+      function syncInputs() {
+        document.getElementById('in-track').value = activeConfig.track;
+        document.getElementById('val-track').textContent = `${activeConfig.track} ${activeConfig.unit}`;
+        document.getElementById('in-target').value = activeConfig.target;
+        document.getElementById('val-target').textContent = `${activeConfig.target} ${activeConfig.unit}`;
+        document.getElementById('in-speed').value = activeConfig.speed;
+        document.getElementById('val-speed').textContent = `${activeConfig.speed} ${activeConfig.speedUnit}`;
+      }
+
+      // Event Listeners
+      document.getElementById('btn-lang-toggle').addEventListener('click', () => {
+        currentLang = currentLang === 'vi' ? 'en' : 'vi';
+        updateI18N();
+      });
+
+      document.querySelectorAll('.btn-preset').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const taskKey = btn.dataset.task;
+          if (PRESETS[taskKey]) {
+            activeConfig = { ...PRESETS[taskKey] };
+            syncInputs();
+            initEngine();
+          }
+        });
+      });
+
+      function onParamChange() {
+        activeConfig.track = Math.max(10, parseFloat(document.getElementById('in-track').value) || 50);
+        activeConfig.target = Math.max(1, parseFloat(document.getElementById('in-target').value) || 42);
+        activeConfig.speed = Math.max(1, parseFloat(document.getElementById('in-speed').value) || 7);
+
+        document.getElementById('val-track').textContent = `${activeConfig.track} ${activeConfig.unit}`;
+        document.getElementById('val-target').textContent = `${activeConfig.target} ${activeConfig.unit}`;
+        document.getElementById('val-speed').textContent = `${activeConfig.speed} ${activeConfig.speedUnit}`;
+
+        document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+        const customBtn = document.querySelector('.btn-preset[data-task="custom"]');
+        if (customBtn) customBtn.classList.add('active');
+
+        initEngine();
+      }
+
+      document.getElementById('in-track').addEventListener('change', onParamChange);
+      document.getElementById('in-target').addEventListener('change', onParamChange);
+      document.getElementById('in-speed').addEventListener('change', onParamChange);
+
+      document.getElementById('btn-run').addEventListener('click', () => {
+        if (!engine) return;
+        isRunning = true;
+        isPaused = false;
+        document.getElementById('disp-status').textContent = I18N[currentLang].running;
+        engine.reset();
+        engine.start();
+      });
+
+      document.getElementById('btn-pause').addEventListener('click', () => {
+        if (!engine || !isRunning) return;
+        if (!isPaused) {
+          isPaused = true;
+          engine.pause();
+          document.getElementById('disp-status').textContent = I18N[currentLang].paused;
+          document.getElementById('txt-btn-pause').textContent = I18N[currentLang].btn_resume;
+        } else {
+          isPaused = false;
+          engine.resume();
+          document.getElementById('disp-status').textContent = I18N[currentLang].running;
+          document.getElementById('txt-btn-pause').textContent = I18N[currentLang].btn_pause;
+        }
+      });
+
+      document.getElementById('btn-reset').addEventListener('click', () => {
+        if (!engine) return;
+        isRunning = false;
+        isPaused = false;
+        engine.reset();
+        resetTelemetry();
+        document.getElementById('txt-btn-pause').textContent = I18N[currentLang].btn_pause;
+      });
+
+      // Camera Controls
+      document.getElementById('btn-cam-overview').addEventListener('click', () => {
+        if (engine && typeof engine.setCameraMode === 'function') {
+          engine.setCameraMode('overview');
+          document.getElementById('btn-cam-overview').classList.add('active');
+          document.getElementById('btn-cam-follow').classList.remove('active');
+        }
+      });
+
+      document.getElementById('btn-cam-follow').addEventListener('click', () => {
+        if (engine && typeof engine.setCameraMode === 'function') {
+          engine.setCameraMode('follow');
+          document.getElementById('btn-cam-follow').classList.add('active');
+          document.getElementById('btn-cam-overview').classList.remove('active');
+        }
+      });
+
+      document.getElementById('btn-cam-rot-l').addEventListener('click', () => {
+        if (engine && typeof engine.rotateCamera === 'function') engine.rotateCamera(0.38);
+      });
+      document.getElementById('btn-cam-rot-r').addEventListener('click', () => {
+        if (engine && typeof engine.rotateCamera === 'function') engine.rotateCamera(-0.38);
+      });
+      document.getElementById('btn-cam-reset').addEventListener('click', () => {
+        if (engine && typeof engine.resetCameraAngle === 'function') engine.resetCameraAngle();
+      });
+
+      // Color Swatches
+      document.querySelectorAll('.color-swatch').forEach(swatch => {
+        swatch.addEventListener('click', () => {
+          document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+          swatch.classList.add('active');
+          currentColor = swatch.dataset.color;
+          if (engine) {
+            engine.setRobots([{
+              id: 'main_bot',
+              name: 'Sparky Bot',
+              color: currentColor,
+              velocity: activeConfig.speed,
+              startPosUnits: 0,
+              targetUnits: activeConfig.target,
+            }]);
+          }
+        });
+      });
+
+      document.getElementById('btn-cheer').addEventListener('click', () => {
+        if (engine && typeof engine.triggerCheer === 'function') {
+          engine.triggerCheer();
+        }
+      });
+
+      document.getElementById('btn-smile').addEventListener('click', () => {
+        if (engine && typeof engine.setEmotion === 'function') {
+          engine.setEmotion('smile');
+        }
+      });
+
+      // Bootstrap
+      function boot() {
+        const badge = document.getElementById('badge-webgl');
+        if (window.RML3D && window.RML3D.supportsWebGL()) {
+          badge.className = 'badge-status badge-ok';
+          badge.textContent = I18N[currentLang].webgl_ok;
+        } else {
+          badge.className = 'badge-status badge-err';
+          badge.textContent = I18N[currentLang].webgl_err;
+          document.getElementById('disp-status').textContent = 'WebGL2 is not supported on this browser/device.';
+          return;
+        }
+
+        syncInputs();
+        updateI18N();
+
+        window.RML3D.load()
+          .then(() => {
+            initEngine();
+          })
+          .catch((err) => {
+            console.error('Failed to load 3D module:', err);
+            document.getElementById('disp-status').textContent = 'Lỗi tải mô đun 3D: ' + (err.message || err);
+          });
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+      } else {
+        boot();
+      }
+    })();
+  </script>
+</body>
+
+</html>

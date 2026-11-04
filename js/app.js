@@ -328,6 +328,13 @@ class AppController {
     if (fsText) fsText.innerText = isFs ? (isVi ? 'Thu nhỏ' : 'Windowed') : (isVi ? 'Toàn màn hình' : 'Fullscreen');
 
 
+    const lbl3D = document.getElementById('lbl-settings-3d-test');
+    if (lbl3D) lbl3D.innerText = isVi ? 'Môi trường thử nghiệm 3D:' : '3D Simulation Test Lab:';
+    const hint3D = document.getElementById('hint-settings-3d-test');
+    if (hint3D) hint3D.innerText = isVi ? 'Trực tiếp kiểm thử mô phỏng Space Lab 3D' : 'Directly test the 3D Space Lab simulator';
+    const btn3D = document.getElementById('btn-settings-open-3d');
+    if (btn3D) btn3D.innerText = isVi ? 'Thử 3D 🧪' : 'Test 3D 🧪';
+
     const btnDone = document.getElementById('btn-settings-done');
     if (btnDone) btnDone.innerText = t('settings_done_btn');
   }

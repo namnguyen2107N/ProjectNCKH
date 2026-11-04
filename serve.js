@@ -51,7 +51,7 @@ const server = http.createServer((req, res) => {
 
   // 3. Block access to internal server code and test files
   const baseName = path.basename(resolvedPath).toLowerCase();
-  if (baseName === 'serve.js' || baseName.startsWith('test-') || baseName.endsWith('.md')) {
+  if (baseName === 'serve.js' || (baseName.startsWith('test-') && baseName.endsWith('.js')) || baseName.endsWith('.md')) {
     res.writeHead(403, { 'Content-Type': 'text/plain', ...SECURITY_HEADERS });
     return res.end('403 Forbidden');
   }
