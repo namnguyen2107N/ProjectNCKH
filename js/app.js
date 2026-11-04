@@ -164,11 +164,8 @@ class AppController {
         btnSaveName.disabled = true;
         btnSaveName.innerText = '…';
         try {
-          if (!window.RMLAuth || typeof window.RMLAuth.updateDisplayName !== 'function') {
-            throw new Error(t('settings_name_save_failed'));
-          }
-          const account = await window.RMLAuth.updateDisplayName(val);
-          this.setStudentName(account?.display_name || val);
+          localStorage.setItem('rml_student_name', val);
+          this.setStudentName(val);
           if (window.SoundFX) window.SoundFX.playTing();
           btnSaveName.innerText = '✓';
           setTimeout(() => {
@@ -818,23 +815,7 @@ class AppController {
   }
 }
 
-// Global bootstrap
-// When the auth gate is present, wait until it has a valid session (or the
-// student has just logged in) before initializing the app. Unit tests that
-// load this file without auth.js still boot normally.
+// Global bootstrap - starts Robot Math Lab directly
 document.addEventListener('DOMContentLoaded', () => {
-  const start = () => {
-    window.App = new AppController();
-  };
-
-  if (window.RML_AUTH_REQUIRED && !window.RMLAuth) {
-    console.error('Auth gate failed to load; refusing to start the app.');
-    return;
-  }
-
-  if (window.RMLAuth && window.RMLAuth.ready) {
-    window.RMLAuth.ready.then(start);
-  } else {
-    start();
-  }
+  window.App = new AppController();
 });

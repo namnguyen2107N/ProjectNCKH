@@ -49,3 +49,4 @@ test('3D loader resolves bundle candidates correctly', () => {
   assert.ok(loaderCode.includes('resolveBundleUrls'), 'Loader should define resolveBundleUrls candidate resolver');
   assert.ok(!loaderCode.includes("import('./simulation-3d.bundle.js')"), 'Loader should not use hardcoded relative import');
 });
+
