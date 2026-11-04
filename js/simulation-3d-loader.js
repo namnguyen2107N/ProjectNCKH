@@ -23,8 +23,11 @@
 
   function supportsWebGL() {
     try {
+      // Three.js r163+ requires WebGL2. Devices with only WebGL1 use the 2D
+      // canvas renderer instead of failing halfway through scene creation.
+      if (typeof WebGL2RenderingContext === 'undefined') return false;
       const canvas = document.createElement('canvas');
-      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+      const gl = canvas.getContext('webgl2');
       if (!gl) return false;
       const lose = gl.getExtension('WEBGL_lose_context');
       if (lose) lose.loseContext();

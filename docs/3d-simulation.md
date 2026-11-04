@@ -78,7 +78,7 @@ robot; renderer 3D xếp robot theo làn và camera follow bám robot đầu ti�
 - `?sim=2d` trên URL để buộc dùng 2D.
 - Loader cũng đọc `localStorage.rml_sim_mode` (giá trị `2d` hoặc `3d`) nếu có.
 - Tự động fallback 2D khi:
-  - trình duyệt không có WebGL;
+  - trình duyệt không có WebGL2 (Three.js hiện đại yêu cầu WebGL2);
   - bundle 3D tải lỗi;
   - WebGL context bị mất (`handleSimulationFatal`).
 - Khi 3D hoạt động: canvas 2D và `#destination-flag` được ẩn; khi fallback, chúng

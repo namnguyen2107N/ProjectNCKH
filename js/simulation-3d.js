@@ -935,17 +935,19 @@ class Simulation3DEngine {
         metalness: 0.3,
       });
       const wheels = [];
-      [-1, 1].forEach((side) => {
-        const wheelGroup = new THREE.Group();
-        wheelGroup.position.set(side * 0.76, 0.32, 0.48);
-        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(ROBOT_WHEEL_RADIUS, ROBOT_WHEEL_RADIUS, 0.22, 14), wheelMaterial);
-        wheel.rotation.z = Math.PI / 2;
-        wheelGroup.add(wheel);
-        const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.24, 8), eyeMaterial);
-        hub.rotation.z = Math.PI / 2;
-        wheelGroup.add(hub);
-        group.add(wheelGroup);
-        wheels.push(wheelGroup);
+      [0.48, -0.42].forEach((axleZ) => {
+        [-1, 1].forEach((side) => {
+          const wheelGroup = new THREE.Group();
+          wheelGroup.position.set(side * 0.76, 0.32, axleZ);
+          const wheel = new THREE.Mesh(new THREE.CylinderGeometry(ROBOT_WHEEL_RADIUS, ROBOT_WHEEL_RADIUS, 0.22, 14), wheelMaterial);
+          wheel.rotation.z = Math.PI / 2;
+          wheelGroup.add(wheel);
+          const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.24, 8), eyeMaterial);
+          hub.rotation.z = Math.PI / 2;
+          wheelGroup.add(hub);
+          group.add(wheelGroup);
+          wheels.push(wheelGroup);
+        });
       });
 
       // Soft blob shadow (cheap and stable on low-end devices).
