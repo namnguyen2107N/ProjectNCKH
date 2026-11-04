@@ -9,16 +9,22 @@ ban đầu nằm ở [`docs/3d-simulation-plan.md`](./3d-simulation-plan.md).
   vị trí, vận tốc, trạng thái hoàn thành và lịch sử mô phỏng.
 - `js/simulation-engine.js` vẫn là renderer 2D (fallback).
 - `js/simulation-3d.js` là renderer Three.js theo phong cách **Space Lab**, robot
-  low-poly procedural, không cần tải GLB/texture ngoài.
-- `js/simulation-3d-loader.js` tải bundle 3D theo nhu cầu, kiểm tra WebGL và giữ
+  low-poly procedural, không cần tải GLB/texture ngoài. Robot có thân tròn, đầu
+  lớn, màn hình mặt (mắt to, smile, blush), tai, ăng-ten, tay, 4 bánh và power
+  core phía sau.
+- `js/simulation-3d-loader.js` tải bundle 3D theo nhu cầu, kiểm tra WebGL2 và giữ
   đường lui 2D.
 - `js/task-engine.js` dùng chung HUD, luồng Run/Finish và nút camera cho cả 2D và
   3D. Task 1, 2, 3 đều chạy được; task mới chỉ cần cấu hình task, không sửa
   renderer.
-- Camera mặc định là toàn cảnh; nút **Theo robot** chuyển sang camera bám đuôi.
+- Camera mặc định là góc **toàn cảnh gần robot** (theo chân robot, không còn nhìn
+  cả đường đua từ xa). Nút **Theo robot** chuyển sang camera bám đuôi sát hơn.
+  Học sinh có thể kéo trực tiếp trên scene để xoay camera quanh robot, hoặc dùng
+  các nút xoay trái/phải/đặt lại góc nhìn trên thanh camera.
   Ở chế độ bám đuôi, các biển khoảng cách và tên robot được ẩn để HUD không bị
   rối; biển đích vẫn hiển thị.
-- Ngôn ngữ của biển đích được cập nhật khi học sinh đổi VI/EN giữa chừng.
+- Ngôn ngữ của biển đích và nhãn nút camera được cập nhật khi học sinh đổi VI/EN
+  giữa chừng.
 
 ## 2. Kiến trúc
 
@@ -84,6 +90,17 @@ robot; renderer 3D xếp robot theo làn và camera follow bám robot đầu ti�
 - Khi 3D hoạt động: canvas 2D và `#destination-flag` được ẩn; khi fallback, chúng
   được hiện lại và cờ đích 2D được định vị lại theo kích thước canvas thật.
 
+### Camera & orbit
+
+- **Toàn cảnh:** camera theo robot ở khoảng cách 13.5, nhìn trước 3.2 đơn vị để
+  thấy đường chạy; robot lớn hơn nhiều so với góc toàn cảnh cũ.
+- **Theo robot:** khoảng cách 7.8, nhìn trước 1.4 đơn vị, bám sát robot.
+- Kéo trên canvas 3D: ngang để xoay quanh robot, dọc để đổi góc cao/thấp (giới hạn
+  0.08–1.12 rad).
+- Nút ↺/↻ xoay từng bước 0.38 rad; nút ⌂ đặt lại góc mặc định.
+- Canvas dùng `touch-action: none` và `cursor: grab`; các nút camera nằm ngoài
+  canvas nên vẫn dùng tốt trên mobile.
+
 ## 5. Hiệu năng
 
 - Bundle 3D chỉ được tải khi mở track hoặc preload trong lúc học sinh làm bài.
@@ -93,7 +110,7 @@ robot; renderer 3D xếp robot theo làn và camera follow bám robot đầu ti�
 - Cảnh idle render khoảng 30 FPS; lúc chạy hoặc chuyển camera mới render đủ.
 - Dash trên đường đua dùng `InstancedMesh`; không dùng shadow map, không tải
   texture ngoài; robot và biển được tạo procedural.
-- Cảnh tham chiếu chỉ khoảng 55–60 draw call và ~4.4k triangle (task 2/3), rất nhẹ so
+- Cảnh tham chiếu chỉ khoảng 50–65 draw call và ~4.5–6k triangle (task 1/2/3), rất nhẹ so
   với các scene 3D thông thường.
 - Tôn trọng `prefers-reduced-motion`: tắt bob, xoay sao, nhấp nháy ring và confetti.
 

@@ -17,6 +17,19 @@ const TRACK_WORLD_EXTRA = 6;
 const LANE_WIDTH = 5.2;
 const ROBOT_WHEEL_RADIUS = 0.28;
 
+// Camera framing: overview is intentionally close to the robot, while follow
+// hugs it from behind. Both modes share the same orbit angle so the transition
+// between them feels continuous.
+const OVERVIEW_CAMERA_DISTANCE = 13.5;
+const FOLLOW_CAMERA_DISTANCE = 7.8;
+const DEFAULT_ORBIT_AZIMUTH = 0.45;
+const DEFAULT_ORBIT_ELEVATION = 0.36;
+const MIN_ORBIT_ELEVATION = 0.08;
+const MAX_ORBIT_ELEVATION = 1.12;
+const ORBIT_DRAG_SPEED = 0.007;
+const ORBIT_TILT_SPEED = 0.006;
+const ORBIT_BUTTON_STEP = 0.38;
+
 const PALETTE = {
   skyTop: '#07091c',
   skyMid: '#141a3f',
@@ -86,6 +99,13 @@ class Simulation3DEngine {
     this.isRunning = false;
     this.is3D = true;
     this.cameraMode = 'overview';
+    this._orbitAzimuth = DEFAULT_ORBIT_AZIMUTH;
+    this._orbitElevation = DEFAULT_ORBIT_ELEVATION;
+    this._orbitPointer = null;
+    this._orbitDragging = false;
+    this._orbitLastX = 0;
+    this._orbitLastY = 0;
+    this._orbitHandlers = null;
     this.onTick = null;
     this.onFinish = null;
     this.onResize = null;
@@ -191,6 +211,32 @@ class Simulation3DEngine {
     this._applyCameraLabelVisibility();
   }
 
+  /**
+   * Orbit the camera around the robot. `direction` is a multiplier of the
+   * default step; +1 is one step clockwise, -1 counter-clockwise.
+   */
+  rotateCamera(direction = 1) {
+    const step = Number.isFinite(direction) ? direction : 1;
+    this._orbitAzimuth = this._normalizeAzimuth(this._orbitAzimuth + step * ORBIT_BUTTON_STEP);
+    this._cameraMoving = true;
+    this._lastRenderTimestamp = 0;
+  }
+
+  resetCamera() {
+    this._orbitAzimuth = DEFAULT_ORBIT_AZIMUTH;
+    this._orbitElevation = DEFAULT_ORBIT_ELEVATION;
+    this._cameraMoving = true;
+    this._lastRenderTimestamp = 0;
+  }
+
+  _normalizeAzimuth(value) {
+    const twoPi = Math.PI * 2;
+    let normalized = value % twoPi;
+    if (normalized > Math.PI) normalized -= twoPi;
+    if (normalized < -Math.PI) normalized += twoPi;
+    return normalized;
+  }
+
   render() {
     if (!this.renderer || !this.scene || !this.camera) return;
     if (this.container && this.container.offsetParent !== null) {
@@ -209,7 +255,6 @@ class Simulation3DEngine {
     this.renderer.setSize(rect.width, rect.height, false);
     this.camera.aspect = rect.width / rect.height;
     this.camera.updateProjectionMatrix();
-    this._overviewDistance = this._computeOverviewDistance();
     this.render();
     if (this.onResize) {
       try { this.onResize(); } catch (_) { /* noop */ }
@@ -285,6 +330,23 @@ class Simulation3DEngine {
     if (this.renderer?.domElement?._contextLostHandler) {
       this.renderer.domElement.removeEventListener('webglcontextlost', this.renderer.domElement._contextLostHandler);
     }
+    if (this.renderer?.domElement && this._orbitHandlers) {
+      const canvas = this.renderer.domElement;
+      canvas.removeEventListener('pointerdown', this._orbitHandlers.down);
+      canvas.removeEventListener('pointermove', this._orbitHandlers.move);
+      canvas.removeEventListener('pointerup', this._orbitHandlers.up);
+      canvas.removeEventListener('pointercancel', this._orbitHandlers.up);
+      if (this._orbitPointer !== null) {
+        try {
+          if (canvas.hasPointerCapture(this._orbitPointer)) {
+            canvas.releasePointerCapture(this._orbitPointer);
+          }
+        } catch (_) { /* noop */ }
+      }
+    }
+    this._orbitHandlers = null;
+    this._orbitPointer = null;
+    this._orbitDragging = false;
 
     this._disposeObject(this.scene);
     if (this.scene && this.scene.background && this.scene.background.dispose) {
@@ -377,10 +439,9 @@ class Simulation3DEngine {
     this.container.appendChild(canvas);
 
     this.camera = new THREE.PerspectiveCamera(46, 1, 0.1, 220);
-    this.camera.position.set(0, 18, 48);
-    this._lookTarget = new THREE.Vector3(0, 0.8, -2);
+    this.camera.position.set(0, 6.5, 36);
+    this._lookTarget = new THREE.Vector3(0, 1.15, 19);
     this.camera.lookAt(this._lookTarget);
-    this._overviewDistance = this._computeOverviewDistance();
   }
 
   _createScene() {
@@ -852,84 +913,166 @@ class Simulation3DEngine {
 
       const bodyMaterial = new THREE.MeshStandardMaterial({
         color: new THREE.Color(robot.color || PALETTE.robot),
-        roughness: 0.48,
-        metalness: 0.15,
+        roughness: 0.52,
+        metalness: 0.08,
         flatShading: true,
       });
-      const lightMaterial = new THREE.MeshStandardMaterial({
-        color: 0xa5b4fc,
+      const headMaterial = new THREE.MeshStandardMaterial({
+        color: 0xeef2ff,
+        roughness: 0.45,
+        metalness: 0.04,
+        flatShading: true,
+      });
+      const whiteMaterial = new THREE.MeshStandardMaterial({
+        color: 0xf8fafc,
         roughness: 0.5,
-        metalness: 0.1,
+        metalness: 0.04,
         flatShading: true,
       });
       const darkMaterial = new THREE.MeshStandardMaterial({
         color: 0x111827,
-        roughness: 0.65,
+        roughness: 0.6,
         metalness: 0.25,
+        flatShading: true,
       });
       const eyeMaterial = new THREE.MeshStandardMaterial({
         color: 0x67e8f9,
         emissive: 0x22d3ee,
-        emissiveIntensity: 2.2,
+        emissiveIntensity: 1.8,
         roughness: 0.25,
       });
+      const pinkMaterial = new THREE.MeshStandardMaterial({
+        color: 0xf472b6,
+        emissive: 0xf43f5e,
+        emissiveIntensity: 0.9,
+        roughness: 0.4,
+        flatShading: true,
+      });
+      const earMaterial = new THREE.MeshStandardMaterial({
+        color: 0x38bdf8,
+        emissive: 0x0284c7,
+        emissiveIntensity: 0.6,
+        roughness: 0.4,
+        flatShading: true,
+      });
 
-      const body = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.9, 1.55), bodyMaterial);
-      body.position.y = 0.62;
+      const radialSegments = this._quality === 'low' ? 12 : 18;
+      const heightSegments = this._quality === 'low' ? 8 : 12;
+
+      // Rounded chibi body with a soft white belly plate.
+      const body = new THREE.Mesh(
+        new THREE.SphereGeometry(0.74, radialSegments, heightSegments),
+        bodyMaterial
+      );
+      body.scale.set(1.12, 0.92, 0.98);
+      body.position.y = 0.82;
       group.add(body);
 
-      // Rear service panel and glowing power core: this is the side the follow
-      // camera sees most of the time, so it should not be a plain blue box.
-      const backpack = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.46, 0.2), darkMaterial);
-      backpack.position.set(0, 0.72, 0.86);
+      const belly = new THREE.Mesh(
+        new THREE.SphereGeometry(0.54, radialSegments, heightSegments),
+        whiteMaterial
+      );
+      belly.scale.set(1.0, 0.82, 0.3);
+      belly.position.set(0, 0.8, -0.62);
+      group.add(belly);
+
+      const chestStar = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), pinkMaterial);
+      chestStar.position.set(0, 0.94, -0.79);
+      chestStar.scale.set(1, 1, 0.55);
+      group.add(chestStar);
+
+      // Big rounded head and a screen face.
+      const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.66, radialSegments, heightSegments),
+        headMaterial
+      );
+      head.scale.set(1.05, 0.98, 0.95);
+      head.position.set(0, 1.66, -0.02);
+      group.add(head);
+
+      const visor = new THREE.Mesh(new THREE.BoxGeometry(1.04, 0.68, 0.12), darkMaterial);
+      visor.position.set(0, 1.66, -0.6);
+      group.add(visor);
+
+      const face = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.98, 0.61),
+        new THREE.MeshBasicMaterial({
+          map: this._makeRobotFaceTexture(),
+          transparent: true,
+          depthWrite: false,
+          toneMapped: false,
+        })
+      );
+      face.position.set(0, 1.66, -0.68);
+      face.rotation.y = Math.PI;
+      group.add(face);
+
+      // Cute ear pods.
+      [-1, 1].forEach((side) => {
+        const ear = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.12, 10), earMaterial);
+        ear.rotation.z = Math.PI / 2;
+        ear.position.set(side * 0.69, 1.66, -0.02);
+        group.add(ear);
+        const earDot = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), pinkMaterial);
+        earDot.position.set(side * 0.76, 1.66, -0.02);
+        group.add(earDot);
+      });
+
+      // Antenna with a glowing pink star.
+      const antennaStem = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.025, 0.025, 0.48, 6),
+        darkMaterial
+      );
+      antennaStem.position.set(0, 2.52, -0.02);
+      group.add(antennaStem);
+
+      const antennaLight = new THREE.Mesh(new THREE.OctahedronGeometry(0.13, 0), pinkMaterial.clone());
+      antennaLight.position.set(0, 2.82, -0.02);
+      group.add(antennaLight);
+      if (this._quality !== 'low') {
+        const antennaGlow = new THREE.PointLight(0xf472b6, 0.6, 2.6, 2);
+        antennaGlow.position.set(0, 2.82, -0.02);
+        group.add(antennaGlow);
+      }
+
+      // Little arms with mitten hands. They swing slightly while driving.
+      const arms = [];
+      [-1, 1].forEach((side) => {
+        const armPivot = new THREE.Group();
+        armPivot.position.set(side * 0.78, 1.14, -0.02);
+        const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 0.28, 4, 8), bodyMaterial);
+        arm.position.set(side * 0.08, -0.2, 0);
+        arm.rotation.z = side * 0.22;
+        armPivot.add(arm);
+        const hand = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), whiteMaterial);
+        hand.position.set(side * 0.16, -0.42, 0);
+        armPivot.add(hand);
+        group.add(armPivot);
+        arms.push(armPivot);
+      });
+
+      // Rear service panel and glowing power core: the follow camera sees this
+      // side most of the time, so it gets a little personality too.
+      const backpack = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.5, 0.2), darkMaterial);
+      backpack.position.set(0, 0.86, 0.74);
       group.add(backpack);
       const coreMaterial = new THREE.MeshStandardMaterial({
         color: 0x9d174d,
         emissive: 0xf472b6,
-        emissiveIntensity: 1.1,
+        emissiveIntensity: 1.05,
         roughness: 0.35,
         metalness: 0.2,
       });
-      const core = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.06, 12), coreMaterial);
+      const core = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.06, 12), coreMaterial);
       core.rotation.x = Math.PI / 2;
-      core.position.set(0, 0.72, 0.98);
+      core.position.set(0, 0.86, 0.86);
       group.add(core);
       const coreRing = new THREE.Mesh(
-        new THREE.TorusGeometry(0.155, 0.018, 6, 20),
+        new THREE.TorusGeometry(0.16, 0.018, 6, 20),
         new THREE.MeshBasicMaterial({ color: 0xf9a8d4 })
       );
-      coreRing.position.set(0, 0.72, 0.99);
+      coreRing.position.set(0, 0.86, 0.87);
       group.add(coreRing);
-
-      const head = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.62, 1.05), lightMaterial);
-      head.position.set(0, 1.28, -0.04);
-      group.add(head);
-
-      const visor = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.3, 0.08), darkMaterial);
-      visor.position.set(0, 1.3, -0.56);
-      group.add(visor);
-
-      [-0.23, 0.23].forEach((x) => {
-        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), eyeMaterial);
-        eye.position.set(x, 1.3, -0.61);
-        group.add(eye);
-      });
-
-      const antennaStem = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.025, 0.025, 0.42, 6),
-        darkMaterial
-      );
-      antennaStem.position.set(0, 1.82, -0.02);
-      group.add(antennaStem);
-
-      const antennaLight = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), eyeMaterial.clone());
-      antennaLight.position.set(0, 2.05, -0.02);
-      group.add(antennaLight);
-      if (this._quality !== 'low') {
-        const antennaGlow = new THREE.PointLight(0x67e8f9, 0.55, 2.3, 2);
-        antennaGlow.position.set(0, 2.05, -0.02);
-        group.add(antennaGlow);
-      }
 
       const wheelMaterial = new THREE.MeshStandardMaterial({
         color: 0x1e293b,
@@ -937,10 +1080,10 @@ class Simulation3DEngine {
         metalness: 0.3,
       });
       const wheels = [];
-      [0.48, -0.42].forEach((axleZ) => {
+      [0.46, -0.44].forEach((axleZ) => {
         [-1, 1].forEach((side) => {
           const wheelGroup = new THREE.Group();
-          wheelGroup.position.set(side * 0.76, 0.32, axleZ);
+          wheelGroup.position.set(side * 0.74, 0.32, axleZ);
           const wheel = new THREE.Mesh(new THREE.CylinderGeometry(ROBOT_WHEEL_RADIUS, ROBOT_WHEEL_RADIUS, 0.22, 14), wheelMaterial);
           wheel.rotation.z = Math.PI / 2;
           wheelGroup.add(wheel);
@@ -955,7 +1098,7 @@ class Simulation3DEngine {
       // Soft blob shadow (cheap and stable on low-end devices).
       const shadowTexture = this._makeShadowTexture();
       const shadow = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.9, 1.9),
+        new THREE.PlaneGeometry(2.15, 2.15),
         new THREE.MeshBasicMaterial({
           map: shadowTexture,
           transparent: true,
@@ -967,20 +1110,27 @@ class Simulation3DEngine {
       shadow.position.y = 0.17;
       group.add(shadow);
 
-      const nameLabel = this._makeLabelSprite(robot.name || 'Robot', {
-        color: '#eef2ff',
-        bg: 'rgba(49,46,129,0.82)',
-        border: 'rgba(165,180,252,0.9)',
-        font: '800 46px "Baloo 2", Arial, sans-serif',
-      });
-      nameLabel.position.set(0, 2.55, 0);
-      nameLabel.scale.set(2.0, 0.5, 1);
-      group.add(nameLabel);
+      // Names are only useful when there is more than one robot. Single-robot
+      // missions stay clean, which lets the redesigned face be the focus.
+      let nameLabel = null;
+      if (count > 1) {
+        nameLabel = this._makeLabelSprite(robot.name || 'Robot', {
+          color: '#eef2ff',
+          bg: 'rgba(49,46,129,0.82)',
+          border: 'rgba(165,180,252,0.9)',
+          font: '800 46px "Baloo 2", Arial, sans-serif',
+        });
+        nameLabel.position.set(0, 3.25, 0);
+        nameLabel.scale.set(1.9, 0.48, 1);
+        group.add(nameLabel);
+      }
 
       this.scene.add(group);
       this._robotViews.push({
         group,
         wheels,
+        arms,
+        shadow,
         eyeMaterial,
         antennaLight,
         nameLabel,
@@ -1005,6 +1155,104 @@ class Simulation3DEngine {
     ctx.fillRect(0, 0, 128, 128);
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }
+
+  /**
+   * Cute screen face: big glossy eyes, a tiny smile, blush and a sparkle.
+   * Drawn once per robot into a canvas texture so it costs no extra draw calls.
+   */
+  _makeRobotFaceTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 320;
+    const ctx = canvas.getContext('2d');
+
+    ctx.clearRect(0, 0, 512, 320);
+    this._roundRect(ctx, 10, 10, 492, 300, 62);
+    const screen = ctx.createLinearGradient(0, 0, 0, 320);
+    screen.addColorStop(0, '#0b1226');
+    screen.addColorStop(1, '#141f45');
+    ctx.fillStyle = screen;
+    ctx.fill();
+    ctx.strokeStyle = '#67e8f9';
+    ctx.lineWidth = 7;
+    ctx.stroke();
+
+    ctx.save();
+    ctx.globalAlpha = 0.28;
+    ctx.strokeStyle = '#a5f3fc';
+    ctx.lineWidth = 2;
+    this._roundRect(ctx, 25, 25, 462, 270, 48);
+    ctx.stroke();
+    ctx.restore();
+
+    // Blush goes behind the eyes.
+    ctx.fillStyle = 'rgba(244,114,182,0.34)';
+    [86, 426].forEach((x) => {
+      ctx.beginPath();
+      ctx.arc(x, 228, 32, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    const drawEye = (x) => {
+      ctx.save();
+      ctx.shadowColor = '#22d3ee';
+      ctx.shadowBlur = 22;
+      ctx.fillStyle = '#e0f2fe';
+      ctx.beginPath();
+      ctx.arc(x, 150, 62, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.fillStyle = '#22d3ee';
+      ctx.beginPath();
+      ctx.arc(x, 154, 43, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#0b1226';
+      ctx.beginPath();
+      ctx.arc(x, 158, 25, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(x - 13, 140, 13, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(255,255,255,0.82)';
+      ctx.beginPath();
+      ctx.arc(x + 12, 172, 6, 0, Math.PI * 2);
+      ctx.fill();
+    };
+    drawEye(158);
+    drawEye(354);
+
+    ctx.strokeStyle = '#67e8f9';
+    ctx.lineWidth = 13;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(256, 220, 56, 0.18 * Math.PI, 0.82 * Math.PI);
+    ctx.stroke();
+
+    // A tiny pink sparkle on the forehead.
+    ctx.strokeStyle = 'rgba(249,168,212,0.9)';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(256, 46);
+    ctx.lineTo(256, 82);
+    ctx.moveTo(238, 64);
+    ctx.lineTo(274, 64);
+    ctx.stroke();
+    ctx.fillStyle = '#f9a8d4';
+    ctx.beginPath();
+    ctx.arc(256, 64, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
     return texture;
   }
 
@@ -1062,9 +1310,11 @@ class Simulation3DEngine {
 
       const z = this._zForUnits(robot.position);
       view.group.position.z = z;
-      view.group.position.y = this._reduceMotion || !this.isRunning
+      const bob = this._reduceMotion || !this.isRunning
         ? 0
         : Math.sin(this._animTime * 9 + index) * 0.025;
+      view.group.position.y = bob;
+      if (view.shadow) view.shadow.position.y = 0.17 - bob;
 
       if (robot.direction < 0) view.group.rotation.y = Math.PI;
       else view.group.rotation.y = 0;
@@ -1076,9 +1326,20 @@ class Simulation3DEngine {
       }
       view.lastPosition = robot.position;
 
+      if (view.arms) {
+        const swing = this._reduceMotion || !this.isRunning
+          ? 0
+          : Math.sin(this._animTime * 9 + index) * 0.18;
+        if (view.arms[0]) view.arms[0].rotation.x = swing;
+        if (view.arms[1]) view.arms[1].rotation.x = -swing;
+      }
+
       const finished = robot.isFinished;
-      view.antennaLight.material.color.setHex(finished ? 0x34d399 : 0x67e8f9);
-      view.antennaLight.material.emissive.setHex(finished ? 0x059669 : 0x0891b2);
+      if (view.antennaLight) {
+        view.antennaLight.material.color.setHex(finished ? 0x34d399 : 0xf472b6);
+        view.antennaLight.material.emissive.setHex(finished ? 0x059669 : 0xf43f5e);
+        if (!this._reduceMotion) view.antennaLight.rotation.y += delta * 1.6;
+      }
     });
 
     if (this._targetRing && !this._reduceMotion) {
@@ -1095,21 +1356,29 @@ class Simulation3DEngine {
 
   _updateCamera(delta, snap = false) {
     if (!this.camera) return;
-    const robot = this.robots[0];
-    const desired = new THREE.Vector3();
-    const look = new THREE.Vector3();
 
-    if (this.cameraMode === 'follow' && robot) {
-      const x = this._laneX(0, this.robots.length);
-      const z = this._zForUnits(robot.position);
-      const behind = robot.direction < 0 ? -1 : 1;
-      desired.set(x + 3.4, 3.2, z + behind * 6.4);
-      look.set(x, 1.0, z);
-    } else {
-      const distance = this._overviewDistance || 48;
-      desired.set(0, this.width < 620 ? 21 : 18, distance);
-      look.set(0, 0.8, -2);
-    }
+    const robot = this.robots[0];
+    const count = Math.max(1, this.robots.length);
+    const follow = this.cameraMode === 'follow';
+    const distance = follow ? FOLLOW_CAMERA_DISTANCE : OVERVIEW_CAMERA_DISTANCE;
+    const lookAhead = follow ? 1.4 : 3.2;
+    const direction = robot && robot.direction < 0 ? -1 : 1;
+    const focusX = this._laneX(0, count);
+    const focusY = 1.15;
+    const focusZ = robot ? this._zForUnits(robot.position) : 0;
+    const azimuth = this._orbitAzimuth + (direction < 0 ? Math.PI : 0);
+    const horizontal = Math.cos(this._orbitElevation) * distance;
+
+    const desired = new THREE.Vector3(
+      focusX + Math.sin(azimuth) * horizontal,
+      focusY + Math.sin(this._orbitElevation) * distance,
+      focusZ + Math.cos(azimuth) * horizontal
+    );
+    const look = new THREE.Vector3(
+      focusX,
+      focusY + 0.12,
+      focusZ - lookAhead * direction
+    );
 
     const amount = snap || this._reduceMotion ? 1 : 1 - Math.pow(0.001, delta || 0.016);
     this.camera.position.lerp(desired, amount);
@@ -1149,15 +1418,6 @@ class Simulation3DEngine {
   /* Geometry helpers                                                   */
   /* ------------------------------------------------------------------ */
 
-  _computeOverviewDistance() {
-    const fov = THREE.MathUtils.degToRad(this.camera.fov);
-    const halfLength = TRACK_WORLD_LENGTH / 2 + 2;
-    const distance = halfLength / Math.tan(fov / 2);
-    const aspect = this.width && this.height ? this.width / this.height : 1.6;
-    const widthDistance = ((LANE_WIDTH + 6) / 2) / Math.tan(Math.atan(Math.tan(fov / 2) * aspect));
-    return Math.max(distance * 0.94, widthDistance * 0.8, 38);
-  }
-
   _zForUnits(units) {
     const ratio = Math.max(-0.12, Math.min(1.12, Number(units) / this.options.trackLengthUnits || 0));
     return TRACK_WORLD_LENGTH / 2 - ratio * TRACK_WORLD_LENGTH;
@@ -1195,6 +1455,58 @@ class Simulation3DEngine {
     };
     canvas.addEventListener('webglcontextlost', contextLost, false);
     canvas._contextLostHandler = contextLost;
+
+    this._bindOrbitControls(canvas);
+  }
+
+  _bindOrbitControls(canvas) {
+    const down = (event) => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      this._orbitPointer = event.pointerId;
+      this._orbitDragging = true;
+      this._orbitLastX = event.clientX;
+      this._orbitLastY = event.clientY;
+      this._cameraMoving = true;
+      this._lastRenderTimestamp = 0;
+      try { canvas.setPointerCapture(event.pointerId); } catch (_) { /* noop */ }
+      event.preventDefault();
+    };
+
+    const move = (event) => {
+      if (!this._orbitDragging || event.pointerId !== this._orbitPointer) return;
+      const dx = event.clientX - this._orbitLastX;
+      const dy = event.clientY - this._orbitLastY;
+      this._orbitLastX = event.clientX;
+      this._orbitLastY = event.clientY;
+      this._orbitAzimuth = this._normalizeAzimuth(this._orbitAzimuth - dx * ORBIT_DRAG_SPEED);
+      this._orbitElevation = THREE.MathUtils.clamp(
+        this._orbitElevation + dy * ORBIT_TILT_SPEED,
+        MIN_ORBIT_ELEVATION,
+        MAX_ORBIT_ELEVATION
+      );
+      this._cameraMoving = true;
+      this._lastRenderTimestamp = 0;
+      this._updateCamera(0, true);
+      event.preventDefault();
+    };
+
+    const up = (event) => {
+      if (event.pointerId !== this._orbitPointer) return;
+      this._orbitDragging = false;
+      this._orbitPointer = null;
+      this._cameraMoving = false;
+      try {
+        if (canvas.hasPointerCapture(event.pointerId)) {
+          canvas.releasePointerCapture(event.pointerId);
+        }
+      } catch (_) { /* noop */ }
+    };
+
+    canvas.addEventListener('pointerdown', down, { passive: false });
+    canvas.addEventListener('pointermove', move, { passive: false });
+    canvas.addEventListener('pointerup', up);
+    canvas.addEventListener('pointercancel', up);
+    this._orbitHandlers = { down, move, up };
   }
 
   _disposeObject(root) {

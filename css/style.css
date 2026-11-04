@@ -2602,12 +2602,29 @@ body.view-start-screen main#main-view {
   font-weight: 800;
 }
 
+.track-camera-divider {
+  width: 2px;
+  height: 1.7rem;
+  margin: 0 0.1rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.track-camera-hint {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .track-camera-btn {
   border: 2px solid #cbd5e1;
   border-radius: var(--radius-full);
   background: white;
   color: var(--text-main);
   padding: 0.38rem 0.9rem;
+  min-height: 2.6rem;
   font-family: var(--font-family);
   font-size: 0.9rem;
   font-weight: 800;
@@ -2628,6 +2645,16 @@ body.view-start-screen main#main-view {
   box-shadow: 0 3px 0 #4338ca;
 }
 
+.track-camera-btn.track-camera-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.6rem;
+  padding: 0.32rem 0.5rem;
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
 .sim-3d-canvas {
   position: absolute;
   inset: 0;
@@ -2636,6 +2663,13 @@ body.view-start-screen main#main-view {
   display: block;
   border-radius: var(--radius-lg);
   outline: none;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.sim-3d-canvas:active {
+  cursor: grabbing;
 }
 
 .sim-3d-loading {
@@ -2690,6 +2724,13 @@ body.view-start-screen main#main-view {
   .canvas-wrapper,
   .track-canvas-wrapper {
     height: 230px;
+  }
+
+  .track-camera-hint {
+    flex-basis: 100%;
+    margin-left: 0;
+    text-align: center;
+    white-space: normal;
   }
 }
 

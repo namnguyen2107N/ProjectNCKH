@@ -334,13 +334,21 @@ class TaskEngine {
 
             <!-- 3D camera switcher (hidden when the 2D fallback is active) -->
             <div class="track-camera-bar hidden" id="track-camera-bar" role="group" aria-label="${t('track_camera_label')}">
-              <span class="track-camera-title">🎥 ${t('track_camera_label')}</span>
+              <span class="track-camera-title" id="track-camera-title">🎥 ${t('track_camera_label')}</span>
               <button type="button" class="track-camera-btn active" id="btn-camera-overview" aria-pressed="true">
                 🌍 ${t('track_camera_overview')}
               </button>
               <button type="button" class="track-camera-btn" id="btn-camera-follow" aria-pressed="false">
                 🤖 ${t('track_camera_follow')}
               </button>
+              <span class="track-camera-divider" aria-hidden="true"></span>
+              <button type="button" class="track-camera-btn track-camera-icon" id="btn-camera-rotate-left"
+                title="${t('track_camera_rotate_left')}" aria-label="${t('track_camera_rotate_left')}">↺</button>
+              <button type="button" class="track-camera-btn track-camera-icon" id="btn-camera-rotate-right"
+                title="${t('track_camera_rotate_right')}" aria-label="${t('track_camera_rotate_right')}">↻</button>
+              <button type="button" class="track-camera-btn track-camera-icon" id="btn-camera-reset"
+                title="${t('track_camera_reset')}" aria-label="${t('track_camera_reset')}">⌂</button>
+              <span class="track-camera-hint" id="track-camera-hint">🖐 ${t('track_camera_drag_hint')}</span>
             </div>
 
             <!-- Canvas Wrapper for Full-width Road Simulation -->
@@ -468,6 +476,12 @@ class TaskEngine {
     if (cameraOverviewBtn) cameraOverviewBtn.onclick = () => this.setCameraMode('overview');
     const cameraFollowBtn = document.getElementById('btn-camera-follow');
     if (cameraFollowBtn) cameraFollowBtn.onclick = () => this.setCameraMode('follow');
+    const cameraRotateLeftBtn = document.getElementById('btn-camera-rotate-left');
+    if (cameraRotateLeftBtn) cameraRotateLeftBtn.onclick = () => this.rotateCamera(-1);
+    const cameraRotateRightBtn = document.getElementById('btn-camera-rotate-right');
+    if (cameraRotateRightBtn) cameraRotateRightBtn.onclick = () => this.rotateCamera(1);
+    const cameraResetBtn = document.getElementById('btn-camera-reset');
+    if (cameraResetBtn) cameraResetBtn.onclick = () => this.resetCamera();
 
   }
 
@@ -659,6 +673,9 @@ class TaskEngine {
     if (!is3D) return;
 
     const t = (k, p) => window.I18N ? window.I18N.t(k, p) : k;
+    bar.setAttribute('aria-label', t('track_camera_label'));
+    const title = document.getElementById('track-camera-title');
+    if (title) title.innerText = `🎥 ${t('track_camera_label')}`;
     const overview = document.getElementById('btn-camera-overview');
     const follow = document.getElementById('btn-camera-follow');
     if (overview) {
@@ -671,11 +688,40 @@ class TaskEngine {
       follow.classList.toggle('active', this.sim.cameraMode === 'follow');
       follow.setAttribute('aria-pressed', String(this.sim.cameraMode === 'follow'));
     }
+    const rotateLeft = document.getElementById('btn-camera-rotate-left');
+    if (rotateLeft) {
+      rotateLeft.title = t('track_camera_rotate_left');
+      rotateLeft.setAttribute('aria-label', t('track_camera_rotate_left'));
+    }
+    const rotateRight = document.getElementById('btn-camera-rotate-right');
+    if (rotateRight) {
+      rotateRight.title = t('track_camera_rotate_right');
+      rotateRight.setAttribute('aria-label', t('track_camera_rotate_right'));
+    }
+    const resetView = document.getElementById('btn-camera-reset');
+    if (resetView) {
+      resetView.title = t('track_camera_reset');
+      resetView.setAttribute('aria-label', t('track_camera_reset'));
+    }
+    const hint = document.getElementById('track-camera-hint');
+    if (hint) hint.innerText = `🖐 ${t('track_camera_drag_hint')}`;
   }
 
   setCameraMode(mode) {
     if (!this.sim || !this.sim.is3D || typeof this.sim.setCameraMode !== 'function') return;
     this.sim.setCameraMode(mode);
+    this.updateCameraUI();
+  }
+
+  rotateCamera(direction) {
+    if (!this.sim || !this.sim.is3D || typeof this.sim.rotateCamera !== 'function') return;
+    this.sim.rotateCamera(direction);
+    this.updateCameraUI();
+  }
+
+  resetCamera() {
+    if (!this.sim || !this.sim.is3D || typeof this.sim.resetCamera !== 'function') return;
+    this.sim.resetCamera();
     this.updateCameraUI();
   }
 
