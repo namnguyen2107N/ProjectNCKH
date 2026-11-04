@@ -10,17 +10,38 @@ const {
   validateClassInput,
 } = validateUtils;
 
-test('valid registration passes', () => {
+test('registration without a class code passes', () => {
   const result = validateRegistration({
+    username: 'hocsinh01',
+    password: 'matkhau123',
+    display_name: 'Bé An',
+    consent: true,
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.data.username, 'hocsinh01');
+  assert.equal(result.data.classCode, '');
+});
+
+test('legacy class code is optional but validated when provided', () => {
+  const valid = validateRegistration({
     username: 'hocsinh01',
     password: 'matkhau123',
     display_name: 'Bé An',
     class_code: 'lop4a',
     consent: true,
   });
-  assert.equal(result.ok, true);
-  assert.equal(result.data.username, 'hocsinh01');
-  assert.equal(result.data.classCode, 'LOP4A');
+  assert.equal(valid.ok, true);
+  assert.equal(valid.data.classCode, 'LOP4A');
+
+  const invalid = validateRegistration({
+    username: 'hocsinh01',
+    password: 'matkhau123',
+    display_name: 'Bé An',
+    class_code: 'x',
+    consent: true,
+  });
+  assert.equal(invalid.ok, false);
+  assert.ok(invalid.errors.class_code);
 });
 
 test('registration rejects short username, weak password, missing consent', () => {

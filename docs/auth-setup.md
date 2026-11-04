@@ -39,11 +39,11 @@ Vercel
 | `db/schema.sql` | Bảng `classes`, `accounts`, `auth_sessions`, `login_events`, `app_metrics`, `rate_limits` |
 | `lib/http.js` | JSON response, đọc body, cookie, hash IP, kiểm tra same-origin |
 | `lib/password.js` | Hash/verify mật khẩu bằng `scrypt` |
-| `lib/validate.js` | Chuẩn hoá username, mã lớp, tên hiển thị |
+| `lib/validate.js` | Chuẩn hoá username, tên hiển thị, mã lớp (tuỳ chọn) |
 | `lib/auth.js` | Tạo/đọc session, CSRF, cookie, phân quyền |
 | `lib/rate-limit.js` | Rate limit theo cửa sổ cố định trong Postgres |
 | `lib/metrics.js` | Đếm online, peak, phạm vi lớp của giáo viên |
-| `api/auth/register.js` | Đăng ký học sinh bằng mã lớp |
+| `api/auth/register.js` | Đăng ký học sinh (không bắt buộc mã lớp) |
 | `api/auth/login.js` | Đăng nhập username/mật khẩu |
 | `api/auth/me.js` | Lấy tài khoản hiện tại + CSRF token |
 | `api/auth/logout.js` | Đăng xuất, thu hồi session |
@@ -189,9 +189,8 @@ Sau đó mở:
 ### Quản trị viên / giáo viên
 
 1. Vào `/admin.html`, đăng nhập.
-2. Tạo lớp mới, nhận **mã lớp** (ví dụ `AB3K9Q`).
-3. Gửi mã lớp cho học sinh.
-4. Theo dõi:
+2. (Tuỳ chọn) Tạo lớp để nhóm tài khoản và xem thống kê riêng. Học sinh hiện **không cần mã lớp** khi đăng ký.
+3. Theo dõi:
    - Đang online (heartbeat 2 phút gần nhất).
    - Đỉnh online trong ngày.
    - Đăng nhập thành công / thất bại hôm nay.
@@ -200,8 +199,8 @@ Sau đó mở:
 ### Học sinh
 
 1. Mở trang chủ → chọn **Tạo tài khoản**.
-2. Nhập tên hiển thị, username, mật khẩu, mã lớp, tick consent.
-3. Tài khoản được tạo và đăng nhập ngay.
+2. Nhập tên hiển thị, username, mật khẩu, tick consent.
+3. Tài khoản được tạo và đăng nhập ngay; tài khoản mới chưa thuộc lớp nào.
 4. Lần sau đăng nhập bằng username/mật khẩu.
 5. Trong **Cài đặt** có thông tin tài khoản và nút **Đăng xuất**.
 
@@ -220,7 +219,7 @@ Tên hiển thị (tiếng Việt có dấu) là trường riêng, không dùng 
 
 | Method | Path | Auth | Mô tả |
 |---|---|---|---|
-| `POST` | `/api/auth/register` | public + same-origin | Đăng ký học sinh bằng mã lớp |
+| `POST` | `/api/auth/register` | public + same-origin | Đăng ký học sinh (mã lớp không bắt buộc) |
 | `POST` | `/api/auth/login` | public + same-origin | Đăng nhập |
 | `GET` | `/api/auth/me` | session | Tài khoản + CSRF token |
 | `POST` | `/api/auth/logout` | session + CSRF | Đăng xuất |
@@ -307,13 +306,13 @@ Nếu cần kiểm thử tải, dùng k6/Artillery với kịch bản:
 ## 13. Checklist kiểm thử
 
 - [ ] `/api/health` trả `db: true`.
-- [ ] Đăng ký với mã lớp sai → báo lỗi rõ ràng.
+- [ ] Đăng ký không cần mã lớp → thành công.
 - [ ] Đăng ký username trùng → 409.
 - [ ] Đăng ký thành công → vào app, header hiện đúng tên.
 - [ ] Đăng xuất → quay lại gate, không vào được app nếu chưa đăng nhập lại.
 - [ ] Sai mật khẩu 11 lần → 429.
 - [ ] Admin login → thấy online/peak/logins.
-- [ ] Tạo lớp → nhận mã, học sinh đăng ký được bằng mã đó.
+- [ ] Tạo lớp (tuỳ chọn) → lớp xuất hiện trong dashboard (dùng cho nhóm tài khoản sau này).
 - [ ] Giáo viên chỉ thấy lớp mình; admin thấy tất cả.
 - [ ] Tắt tab 2 phút → online giảm.
 - [ ] Cookie có `HttpOnly`, `Secure`, `SameSite=Lax`.

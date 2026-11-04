@@ -442,11 +442,11 @@
           if (result) {
             result.innerHTML = '';
             result.classList.remove('is-error');
-            result.appendChild(document.createTextNode('🎉 Đã tạo lớp! Mã tham gia: '));
+            result.appendChild(document.createTextNode('🎉 Đã tạo lớp! Mã lớp: '));
             const code = document.createElement('code');
             code.textContent = created.join_code;
             result.appendChild(code);
-            result.appendChild(document.createTextNode(' — hãy gửi mã này cho học sinh.'));
+            result.appendChild(document.createTextNode(' — dùng khi cần quản lý lớp.'));
             result.hidden = false;
           }
           form.reset();

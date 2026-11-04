@@ -11,7 +11,7 @@ This report covers the new authentication and access-tracking layer added to Rob
 - Username/password registration and login for students
 - Teacher/admin dashboard at `admin.html`
 - Session presence tracking for ~100 concurrent users
-- Consent capture and class-code onboarding
+- Consent capture and open registration (class code not required)
 
 The older reports in this folder describe the pre-auth static build. Where they say “no database / no accounts / no passwords”, those statements are superseded by this report.
 
@@ -30,7 +30,7 @@ The older reports in this folder describe the pre-auth static build. Where they 
 | Rate limiting | PASS | Postgres fixed-window counters: login per username/IP, register per IP/class, heartbeat per account |
 | Username enumeration (login) | PASS | Generic credential error; dummy scrypt verification for unknown usernames |
 | Account status | PASS | `status='active'` required; disabled accounts cannot create sessions |
-| Input validation | PASS | Username regex, class-code regex, display-name length, password length, consent required |
+| Input validation | PASS | Username regex, optional class-code regex, display-name length, password length, consent required |
 | XSS in display name | PASS | Server strips `<>`; UI uses `textContent`/escaping; feedback modal sanitises names |
 | Secrets | PASS | `.env` ignored; Vercel environment variables; `.vercelignore` excludes local scripts/schema/docs |
 | Security headers | PASS | Vercel headers: nosniff, frame deny, referrer policy, permissions policy |
@@ -50,7 +50,7 @@ The older reports in this folder describe the pre-auth static build. Where they 
 - `scripts/seed.mjs` executed: admin + class created with expected join code.
 - API integration (PGlite socket + real handlers): **20/20 checks passed**, including:
   - health, unauthenticated `/me`
-  - registration, duplicate username, wrong class code
+  - registration without class code, duplicate username, optional invalid class code
   - cross-origin rejection
   - login success/failure, rate limit after repeated failures
   - heartbeat
@@ -66,7 +66,7 @@ The older reports in this folder describe the pre-auth static build. Where they 
 2. **Shared classroom devices.** New journal entries carry `accountId` and the journal filters by the signed-in account; legacy entries without `accountId` are hidden. However, `localStorage` remains readable via developer tools. For stronger protection, sync and clear local logs on logout.
 3. **Learning log sync is not implemented yet.** This phase records accounts, login events, sessions and presence. PS1–PS11 learning events are still local-only; add `learning_sessions`/`learning_events` and a batch endpoint next.
 4. **Password reset is administrative.** `npm run user:reset-password -- <username> <password>` resets and revokes sessions; there is no self-service email flow (students have no email).
-5. **No CAPTCHA/teacher approval.** Registration is protected by a class code and rate limits. If class codes leak, add teacher approval or a per-class registration window.
+5. **No CAPTCHA/teacher approval.** Registration is open and protected only by rate limits; a class code is no longer required. If abuse becomes a problem, re-enable a required class code or add teacher approval.
 6. **Third-party data location.** Neon/Vercel regions should be chosen to satisfy the school’s data-residency policy; document this in the research ethics file.
 7. **No immutable audit trail yet.** `login_events` records authentication; admin exports/views are not audited. Add an `audit_logs` table if required by the research protocol.
 

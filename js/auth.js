@@ -1,6 +1,6 @@
 /**
  * ROBOT MATH LAB - AUTH GATE
- * Username/password login + self-registration with a class code.
+ * Username/password login + self-registration (no class code required).
  * The gate is intentionally client-side; real access control lives in /api.
  */
 (function () {
@@ -52,8 +52,6 @@
       confirm: 'Nhập lại mật khẩu',
       displayName: 'Tên hiển thị',
       displayNameHint: 'Tên em muốn hiện trong bài học',
-      classCode: 'Mã lớp',
-      classCodeHint: 'Mã do giáo viên cung cấp',
       consent: 'Em đồng ý để hệ thống ghi nhận dữ liệu học tập (không gồm email, số điện thoại) cho mục đích nghiên cứu.',
       loginBtn: 'Vào phòng học',
       registerBtn: 'Tạo tài khoản và vào học',
@@ -68,7 +66,6 @@
       passwordMismatch: 'Mật khẩu nhập lại không khớp.',
       usernameInvalid: 'Tên đăng nhập phải có 3-24 ký tự, chỉ gồm chữ thường, số và dấu gạch dưới.',
       passwordShort: 'Mật khẩu phải có ít nhất 8 ký tự.',
-      classInvalid: 'Mã lớp phải có 4-12 ký tự chữ hoặc số.',
       displayNameMissing: 'Vui lòng nhập tên hiển thị.',
       consentMissing: 'Em cần đồng ý với việc ghi nhận dữ liệu học tập.',
       accountPanel: 'Tài khoản',
@@ -91,8 +88,6 @@
       confirm: 'Confirm password',
       displayName: 'Display name',
       displayNameHint: 'The name shown during lessons',
-      classCode: 'Class code',
-      classCodeHint: 'Provided by your teacher',
       consent: 'I agree that my learning data (no email or phone number) may be recorded for research purposes.',
       loginBtn: 'Enter the lab',
       registerBtn: 'Create account and start',
@@ -107,7 +102,6 @@
       passwordMismatch: 'The passwords do not match.',
       usernameInvalid: 'Username must be 3-24 chars: lowercase letters, numbers, underscore.',
       passwordShort: 'Password must be at least 8 characters.',
-      classInvalid: 'Class code must be 4-12 letters or numbers.',
       displayNameMissing: 'Please enter a display name.',
       consentMissing: 'Please agree to the learning data notice.',
       accountPanel: 'Account',
@@ -261,7 +255,6 @@
           ${field('rml-register-username', 'username', t.username, t.usernameHint, 'text', 'username')}
           ${field('rml-register-password', 'password', t.password, t.passwordHint, 'password', 'new-password')}
           ${field('rml-register-confirm', 'password_confirm', t.confirm, '', 'password', 'new-password')}
-          ${field('rml-register-class', 'class_code', t.classCode, t.classCodeHint, 'text', 'off')}
           <label class="rml-auth-consent">
             <input type="checkbox" name="consent" />
             <span>${escapeHtml(t.consent)}</span>
@@ -292,7 +285,6 @@
     const registerForm = overlay.querySelector('#rml-register-form');
     const loginUsername = overlay.querySelector('#rml-login-username');
     const registerUsername = overlay.querySelector('#rml-register-username');
-    const classInput = overlay.querySelector('#rml-register-class');
 
     if (loginUsername) {
       loginUsername.addEventListener('input', () => {
@@ -304,12 +296,6 @@
         registerUsername.value = registerUsername.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 24);
       });
     }
-    if (classInput) {
-      classInput.addEventListener('input', () => {
-        classInput.value = classInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
-      });
-    }
-
     if (loginForm) loginForm.addEventListener('submit', onLoginSubmit);
     if (registerForm) registerForm.addEventListener('submit', onRegisterSubmit);
 
@@ -446,14 +432,12 @@
     const username = String(data.get('username') || '').trim();
     const password = String(data.get('password') || '');
     const confirm = String(data.get('password_confirm') || '');
-    const classCode = String(data.get('class_code') || '').trim().toUpperCase();
     const consent = data.get('consent') === 'on';
 
     if (!displayName) return showError('register', t.displayNameMissing);
     if (!/^[a-z0-9][a-z0-9_]{2,23}$/.test(username)) return showError('register', t.usernameInvalid);
     if (password.length < 8) return showError('register', t.passwordShort);
     if (password !== confirm) return showError('register', t.passwordMismatch);
-    if (!/^[A-Z0-9]{4,12}$/.test(classCode)) return showError('register', t.classInvalid);
     if (!consent) return showError('register', t.consentMissing);
 
     setBusy(form, true);
@@ -464,7 +448,6 @@
           display_name: displayName,
           username,
           password,
-          class_code: classCode,
           consent: true,
         }),
       });

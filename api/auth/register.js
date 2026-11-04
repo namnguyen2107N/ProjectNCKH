@@ -57,32 +57,38 @@ module.exports = async function handler(req, res) {
       );
     }
 
-    const classLimit = await hit(`register:class:${classCode}`, 200, 3600);
-    if (!classLimit.allowed) {
-      return sendError(
-        res,
-        429,
-        'RATE_LIMITED',
-        'Lớp này đã tạo quá nhiều tài khoản trong thời gian ngắn. Vui lòng thử lại sau.',
-        null,
-        { 'Retry-After': String(classLimit.retryAfter) }
-      );
-    }
+    // Class code is optional: registrations are open. Legacy clients may still
+    // send one, in which case it is validated and the account is grouped.
+    let selectedClass = null;
+    if (classCode) {
+      const classLimit = await hit(`register:class:${classCode}`, 200, 3600);
+      if (!classLimit.allowed) {
+        return sendError(
+          res,
+          429,
+          'RATE_LIMITED',
+          'Lớp này đã tạo quá nhiều tài khoản trong thời gian ngắn. Vui lòng thử lại sau.',
+          null,
+          { 'Retry-After': String(classLimit.retryAfter) }
+        );
+      }
 
-    const classes = await sql`
-      select id, name, join_code
-      from classes
-      where join_code = ${classCode}
-      limit 1
-    `;
-    if (!classes.length) {
-      return sendError(
-        res,
-        422,
-        'CLASS_NOT_FOUND',
-        'Mã lớp không đúng. Vui lòng kiểm tra lại mã giáo viên đã cung cấp.',
-        { class_code: 'Mã lớp không tồn tại.' }
-      );
+      const classes = await sql`
+        select id, name, join_code
+        from classes
+        where join_code = ${classCode}
+        limit 1
+      `;
+      if (!classes.length) {
+        return sendError(
+          res,
+          422,
+          'CLASS_NOT_FOUND',
+          'Mã lớp không đúng. Vui lòng kiểm tra lại mã giáo viên đã cung cấp.',
+          { class_code: 'Mã lớp không tồn tại.' }
+        );
+      }
+      selectedClass = classes[0];
     }
 
     const passwordHash = await hashPassword(password);
@@ -96,7 +102,7 @@ module.exports = async function handler(req, res) {
             (username, password_hash, display_name, role, class_id, status,
              consent_version, consent_granted_at)
           values
-            (${username}, ${passwordHash}, ${displayName}, 'student', ${classes[0].id}, 'active',
+            (${username}, ${passwordHash}, ${displayName}, 'student', ${selectedClass ? selectedClass.id : null}, 'active',
              ${consentVersion}, now())
           returning id, username, display_name, role, class_id, created_at
         `;
@@ -129,7 +135,7 @@ module.exports = async function handler(req, res) {
 
     return sendJson(res, 201, {
       data: {
-        account: publicAccount(result.account, classes[0].name),
+        account: publicAccount(result.account, selectedClass ? selectedClass.name : null),
         csrf_token: result.session.csrf,
       },
     });
