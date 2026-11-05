@@ -54,6 +54,23 @@ class AppController {
     } else {
       this.handleRoute();
     }
+
+    // 8. Brand Logo click: Return to Start Screen
+    const brandLink = document.getElementById('brand-home-link');
+    if (brandLink) {
+      brandLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (this.taskEngine && this.taskEngine.sim) {
+          try { this.taskEngine.sim.destroy(); } catch (_) {}
+        }
+        if (window.SoundFX) window.SoundFX.playPop();
+        if (window.location.hash === '#start') {
+          this.renderStartScreen();
+        } else {
+          window.location.hash = '#start';
+        }
+      });
+    }
   }
 
   handleLanguageChanged(lang) {

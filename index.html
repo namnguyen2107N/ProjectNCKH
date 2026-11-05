@@ -230,7 +230,7 @@
   <header class="app-header" id="app-header">
     <div class="header-container">
       <!-- Brand Logo -->
-      <a href="#hub" class="brand-link" id="brand-home-link" title="Missions Hub / Trang chủ chọn bài">
+      <a href="#start" class="brand-link" id="brand-home-link" title="Quay lại màn hình khởi động / Back to Start Screen">
         <div class="brand-icon-cute animate-bounce-gentle">🤖</div>
         <div>
           <div class="brand-name">Robot Math Lab ✨</div>
@@ -479,6 +479,10 @@
       if (btnLangEn) btnLangEn.classList.toggle('active', !isVi);
       if (btnLangVi) btnLangVi.classList.toggle('active', isVi);
 
+      const brandHomeLink = document.getElementById('brand-home-link');
+      if (brandHomeLink) {
+        brandHomeLink.title = isVi ? 'Quay lại màn hình khởi động' : 'Back to Start Screen';
+      }
       const brandSub = document.querySelector('.brand-sub');
       if (brandSub) brandSub.innerText = window.I18N.t('brand_sub');
 
