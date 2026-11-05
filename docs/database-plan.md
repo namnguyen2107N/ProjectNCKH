@@ -1,102 +1,96 @@
-# Kế hoạch Database — Robot Math Lab (bản standalone, sau khi gỡ auth)
+# Kế hoạch Database — Robot Math Lab (bản standalone + đăng nhập nhẹ tên/tuổi)
 
 > Cập nhật: 05/11/2026
-> Trạng thái hiện tại của repo (commit `87644d2`):
-> - Không còn màn hình đăng nhập/đăng ký — vào trang là học được ngay.
-> - Toàn bộ dữ liệu học tập (nhật ký PS1–PS11, gợi ý, từ điển) đang nằm ở `localStorage` của từng máy.
-> - Production **chưa có database**: `/api/health` trả `503` (chưa cấu hình Neon hoặc chưa tạo DB).
-> - `db/schema.sql` vẫn còn bảng auth cũ (accounts, classes, auth_sessions, login_events) nhưng **không endpoint nào dùng**.
+> Mô hình đã chốt với người sở hữu:
+> - **Học sinh đăng nhập nhẹ**: chỉ cần **tên và độ tuổi**, không email, không mật khẩu, không mã lớp.
+> - Hệ thống **lưu nhật ký học tập** (sự kiện PS1–PS11, gợi ý, từ điển, thời gian, kết quả).
+> - **Có consent** trước khi ghi dữ liệu.
+> - Dữ liệu **chỉ người sở hữu (bạn) xem và quản lý được**, không công khai.
+> - Trang web vẫn chạy được khi DB lỗi (học là chính, ghi dữ liệu là phụ).
+>
+> Trạng thái repo hiện tại (commit `87644d2`): site standalone không có auth; dữ liệu học tập đang nằm ở `localStorage`; production **chưa có DB** (`/api/health` = 503); `db/schema.sql` còn bảng auth cũ nhưng không ai dùng.
 
 ---
 
-## 1. Câu hỏi quyết định trước khi thiết kế
+## 1. Mô hình tổng thể
 
-Database chỉ nên tồn tại nếu nó phục vụ một mục đích thật. Có 3 phương án:
+```
+Học sinh (trên máy/tablet của lớp)
+   ├─ Màn hình chào: nhập TÊN + TUỔI (hoặc chọn hồ sơ đã lưu trên máy)
+   ├─ Consent banner → đồng ý/không đồng ý
+   ├─ Làm nhiệm vụ → LogEngine ghi sự kiện (PS1–PS11, HINT, VOCAB, ...)
+   └─ js/telemetry.js (mới) gom batch → POST /api/events
+              │
+              ▼
+Vercel Functions (serverless)
+   ├─ /api/students/*      : tạo/chọn hồ sơ học sinh (tên + tuổi) — đăng nhập nhẹ
+   ├─ /api/events          : nhận nhật ký học tập (dedupe, validate, loại PII)
+   └─ /api/owner/*         : CHỈ người sở hữu: xem, lọc, xuất CSV, xoá dữ liệu
+              │
+              ▼
+Neon Postgres (pooled, transaction mode, region Singapore)
+```
 
-| Phương án | Mô tả | Chi phí | Khi nào chọn |
-|---|---|---|---|
-| **A. Không cần DB** | Giữ nguyên 100% static + localStorage. Xoá phần auth leftover. | 0 | Chỉ demo/chạy lớp, không cần số liệu |
-| **B. DB nghiên cứu ẩn danh** (khuyến nghị) | Gửi nhật ký học tập (sự kiện PS1–PS11, gợi ý, từ điển, thời gian, kết quả) lên Neon dưới dạng ẩn danh + bảng đồng ý (consent) | Nhỏ (Neon Free/Launch) | Đây là dự án NCKH — cần dữ liệu để phân tích |
-| **C. Tài khoản tuỳ chọn + đồng bộ** | Thêm lại tài khoản (không bắt buộc) để đồng bộ nhật ký/tiến độ giữa các thiết bị, chia lớp | Trung bình | Khi cần báo cáo theo từng học sinh/giáo viên |
-
-**Khuyến nghị: phương án B.** Trang web không cần DB để chạy (yêu cầu hiện tại là standalone), nhưng với mục tiêu nghiên cứu khoa học thì phần dữ liệu học tập đang bị "kẹt" trong localStorage mới là thứ đáng lưu. Phương án B không đụng vào giao diện, không bắt học sinh đăng nhập, và dữ liệu vẫn ẩn danh.
-
-Phần còn lại của tài liệu thiết kế chi tiết cho phương án B, kèm ghi chú để nâng cấp lên C sau này nếu cần.
+**Lưu ý an toàn được chấp nhận trong thiết kế:** đăng nhập của học sinh (tên + tuổi) **không phải xác thực bảo mật** — ai trên cùng máy cũng có thể chọn/nhập hồ sơ. Điều này phù hợp với lớp học và không lưu thông tin nhạy cảm. Lớp bảo mật thật sự nằm ở **phần của người sở hữu** (mật khẩu + session).
 
 ---
 
 ## 2. Nguyên tắc thiết kế
 
-1. **Trang web chạy độc lập với DB.** Mất mạng hay DB lỗi → site vẫn học bình thường; việc gửi dữ liệu chỉ là "cố gắng tốt nhất" (fire-and-forget).
-2. **Ẩn danh tối đa.** Không lưu tên thật, không lưu email, không lưu IP thô (chỉ lưu hash). Định danh bằng `install_id` (UUID ngẫu nhiên tự sinh ở máy học sinh, lưu localStorage).
-3. **Có sự đồng ý (consent).** Là dữ liệu trẻ em (lớp 5) → chỉ gửi khi người dùng (phụ huynh/giáo viên đại diện) đã tick đồng ý trong app; lưu phiên bản consent để truy vết.
-4. **Đúng mục đích nghiên cứu.** Chỉ gửi các sự kiện đã có sẵn trong `LogEngine`, không gửi bất kỳ nội dung tự do nào khác.
-5. **Server-side only.** Không có cách nào truy cập DB trực tiếp từ trình duyệt; mọi ghi đều qua 1 endpoint `/api/events` được validate chặt.
+1. **Học sinh chỉ cần tên + tuổi.** Không username, không mật khẩu, không email.
+2. **Dữ liệu gắn với hồ sơ học sinh** (pseudonymous), không gắn với thiết bị; một tablet có thể có nhiều hồ sơ (chọn trước khi học).
+3. **Consent trước khi ghi.** Lưu phiên bản consent + thời điểm đồng ý; không đồng ý → app vẫn học, chỉ không gửi dữ liệu.
+4. **Chỉ người sở hữu truy cập dữ liệu.** Không endpoint công khai nào trả dữ liệu thô; trang quản lý của bạn nằm ngoài giao diện học sinh.
+5. **Site không phụ thuộc DB.** Ghi dữ liệu fire-and-forget, timeout ngắn, có queue gửi lại khi mất mạng.
+6. **Không lưu IP thô** (chỉ hash có salt); không lưu nội dung tự do ngoài các trường đã định nghĩa.
 
 ---
 
-## 3. Sơ đồ tổng thể
+## 3. Bảng dữ liệu
 
-```
-Trình duyệt (localStorage)
-   ├─ LogEngine: sessions + events (PS1–PS11, HINT, VOCAB, ...)
-   └─ TelemetryClient (mới, nhỏ): flush batch ẩn danh
-              │ POST /api/events (bắt buộc same-origin, rate-limit)
-              ▼
-Vercel Function (serverless)
-   ├─ validate body (kích thước, mã sự kiện allowlist, bỏ PII)
-   ├─ upsert learning_sessions + learning_events (dedupe theo uid)
-   └─ ghi app_metrics / rate_limits
-              ▼
-Neon Postgres (pooled connection, transaction mode)
-```
-
----
-
-## 4. Bảng dữ liệu (phương án B)
-
-### 4.1 Bảng giữ lại từ schema cũ (đã có, dùng cho mục mới)
+### 3.1 Hồ sơ học sinh — đăng nhập nhẹ
 
 ```sql
--- đếm online theo ngày (đã có trong db/schema.sql)
-create table if not exists app_metrics (
-  metric_date date primary key,
-  peak_online integer not null default 0,
-  updated_at  timestamptz not null default now()
+create table if not exists student_profiles (
+  id           bigserial primary key,
+  display_name text not null,
+  age          smallint not null,
+  created_at   timestamptz not null default now(),
+  last_seen_at timestamptz,
+  deactivated_at timestamptz,
+  constraint student_profiles_name_len check (char_length(display_name) between 1 and 50),
+  constraint student_profiles_age_chk   check (age between 3 and 18)
 );
 
--- rate limit (đã có) — dùng lại để chống spam endpoint /api/events
-create table if not exists rate_limits (
-  bucket       text not null,
-  window_start timestamptz not null,
-  hits         integer not null default 0,
-  primary key (bucket, window_start)
-);
+create index if not exists student_profiles_name_idx on student_profiles (lower(display_name));
 ```
 
-### 4.2 Bảng mới — sự đồng ý nghiên cứu
+- Tạo mới: `POST /api/students { displayName, age }` → trả `{ profileId }`, client lưu `rml_profile_id`.
+- Chọn lại: client gửi danh sách `profileId` đã lưu trên máy → server trả thông tin còn hợp lệ.
+- Không trùng lặp kiểm soát cứng: mỗi máy giữ danh sách id riêng; nếu cùng tên+tuổi được tạo 2 lần thì đó là 2 hồ sơ khác nhau (chấp nhận, vì không có mật khẩu để phân biệt). Có thể thêm `unique (display_name, age)` nếu bạn muốn gộp, nhưng mặc định **không unique** để tránh chặn nhầm 2 học sinh trùng tên.
+
+### 3.2 Sự đồng ý nghiên cứu
 
 ```sql
 create table if not exists consents (
   id              bigserial primary key,
-  install_id      text not null,
+  profile_id      bigint not null references student_profiles(id) on delete cascade,
   consent_version text not null,
   granted_at      timestamptz not null default now(),
   revoked_at      timestamptz,
-  unique (install_id, consent_version)
+  unique (profile_id, consent_version)
 );
 ```
 
-- `install_id`: UUID do máy tự sinh (không phải tên, không phải username).
-- Mỗi lần đổi `CONSENT_VERSION` → học sinh được hỏi lại; bản cũ giữ lại để đối chiếu.
+- Đổi `CONSENT_VERSION` → học sinh được hỏi lại; bản cũ giữ để đối chiếu.
 
-### 4.3 Bảng mới — phiên học tập (1 dòng / 1 lần làm nhiệm vụ)
+### 3.3 Phiên học tập
 
 ```sql
 create table if not exists learning_sessions (
   id               bigserial primary key,
-  session_uid      text not null unique,     -- id phiên do client sinh (ses_...)
-  install_id       text not null,
+  session_uid      text not null unique,     -- ses_... do client sinh
+  profile_id       bigint not null references student_profiles(id) on delete cascade,
   task_id          text not null,            -- task1-reach | task2-fix | task3-new | ...
   task_title       text,
   language         text not null check (language in ('vi', 'en')),
@@ -109,26 +103,26 @@ create table if not exists learning_sessions (
   max_hint_level   integer not null default 0,
   vocab_lookups    integer not null default 0,
   final_success    boolean,
-  summary          jsonb not null default '{}'::jsonb,  -- các chỉ số khác của FeedbackEngine
-  ip_hash          text,                    -- hash IP (không lưu IP thô)
-  ua_hash          text,                    -- hash user-agent
+  summary          jsonb not null default '{}'::jsonb,
+  ip_hash          text,
+  ua_hash          text,
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now()
 );
 
-create index if not exists learning_sessions_install_idx on learning_sessions (install_id, started_at desc);
+create index if not exists learning_sessions_profile_idx on learning_sessions (profile_id, started_at desc);
 create index if not exists learning_sessions_task_idx     on learning_sessions (task_id, started_at desc);
 create index if not exists learning_sessions_started_idx  on learning_sessions (started_at desc);
 ```
 
-### 4.4 Bảng mới — sự kiện học tập (1 dòng / 1 event PS1–PS11…)
+### 3.4 Sự kiện học tập
 
 ```sql
 create table if not exists learning_events (
   id               bigserial primary key,
   session_id       bigint not null references learning_sessions(id) on delete cascade,
-  client_event_uid text not null unique,    -- evt_... do client sinh → chống gửi trùng khi retry
-  install_id       text not null,
+  client_event_uid text not null unique,    -- evt_... → dedupe khi client gửi lại
+  profile_id       bigint not null references student_profiles(id) on delete cascade,
   task_id          text,
   code             text not null,           -- PS1..PS11, STEP_TRANSITION, HINT_REQUESTED,
                                             -- VOCAB_LOOKUP, JOURNAL_VIEWED, TASK_REFLECTION,
@@ -140,200 +134,194 @@ create table if not exists learning_events (
   created_at       timestamptz not null default now()
 );
 
-create index if not exists learning_events_session_idx on learning_events (session_id, created_at);
-create index if not exists learning_events_install_idx on learning_events (install_id, created_at desc);
+create index if not exists learning_events_session_idx  on learning_events (session_id, created_at);
+create index if not exists learning_events_profile_idx  on learning_events (profile_id, created_at desc);
 create index if not exists learning_events_task_code_idx on learning_events (task_id, code);
 ```
 
-**Ghi chú dedupe:** client gửi lại batch khi mạng lỗi → `client_event_uid unique` + `on conflict do nothing` giúp không trùng dữ liệu.
-
-### 4.5 Bảng cho tương lai (chỉ tạo khi chọn phương án C)
-
-Khi cần đồng bộ tiến độ giữa thiết bị hoặc báo cáo theo lớp, thêm:
+### 3.5 Người sở hữu — chỉ bạn truy cập
 
 ```sql
--- task_progress: tiến độ cao nhất của mỗi install_id với mỗi nhiệm vụ
-create table if not exists task_progress (
-  install_id   text not null,
-  task_id      text not null,
-  best_step    integer not null default 0,
-  completed_at timestamptz,
-  updated_at   timestamptz not null default now(),
-  primary key (install_id, task_id)
+create table if not exists owner_accounts (
+  id            bigserial primary key,
+  username      text not null unique,
+  password_hash text not null,              -- scrypt, tạo qua script
+  created_at    timestamptz not null default now(),
+  last_login_at timestamptz
+);
+
+create table if not exists owner_sessions (
+  id           bigserial primary key,
+  owner_id     bigint not null references owner_accounts(id) on delete cascade,
+  token_hash   text not null unique,
+  csrf_token   text not null,
+  created_at   timestamptz not null default now(),
+  last_seen_at timestamptz not null default now(),
+  expires_at   timestamptz not null,
+  revoked_at   timestamptz
+);
+
+create index if not exists owner_sessions_active_idx
+  on owner_sessions (last_seen_at) where revoked_at is null;
+```
+
+- Chỉ tạo **1 tài khoản owner** qua `scripts/seed-owner.mjs` (username + mật khẩu từ env/biến nhập, hash scrypt như `lib/password.js` đã có).
+- Session cookie `HttpOnly; Secure; SameSite=Lax` + CSRF token, giống cơ chế auth cũ đã viết (tận dụng `lib/auth.js`, `lib/password.js`).
+
+### 3.6 Bảng giữ lại từ schema cũ
+
+```sql
+create table if not exists app_metrics (
+  metric_date date primary key,
+  peak_online integer not null default 0,
+  updated_at  timestamptz not null default now()
+);
+
+create table if not exists rate_limits (
+  bucket       text not null,
+  window_start timestamptz not null,
+  hits         integer not null default 0,
+  primary key (bucket, window_start)
 );
 ```
 
-Còn bảng `accounts`/`classes`/`auth_sessions`/`login_events` cũ: **đề xuất không tạo mới** trong DB production (vì chưa có DB nào được tạo từ trước). Chỉ cần tạo lại khi thật sự quay lại phương án C.
+**Bỏ qua** các bảng `accounts`/`classes`/`auth_sessions`/`login_events` cũ (không còn dùng, không tạo trong DB mới). Code tham chiếu còn sót (`lib/auth.js`, `lib/password.js` dùng lại cho owner, `scripts/seed.mjs`, `scripts/reset-password.mjs`) sẽ được phân loại: giữ `lib/password.js`, viết lại phần session cho owner; xoá `seed.mjs`/`reset-password.mjs` hoặc thay bằng script owner.
 
 ---
 
-## 5. Endpoint `/api/events`
+## 4. Endpoint
 
-### 5.1 Hợp đồng API
+### 4.1 Học sinh — đăng nhập nhẹ + ghi dữ liệu
 
 ```http
+POST /api/students
+{ "displayName": "An", "age": 10 }        → { "profileId": 42 }
+
+GET /api/students/:ids?ids=1,2,3           → thông tin các hồ sơ còn hợp lệ (để máy hiện danh sách chọn)
+
 POST /api/events
-Content-Type: application/json
-X-Install-Id: <uuid>          (hoặc để trong body)
-
-Body (≤ 128 KB):
-{
-  "installId": "uuid-v4",
-  "consentVersion": "2026-11-v1",
-  "language": "vi",
-  "sessions": [
-    {
-      "sessionUid": "ses_...",
-      "taskId": "task1-reach",
-      "taskTitle": "Reach the Goal",
-      "startedAt": "2026-11-05T08:00:00Z",
-      "completedAt": "2026-11-05T08:12:00Z",
-      "totalTimeSeconds": 720,
-      "totalAttempts": 2,
-      "backwardSteps": 1,
-      "hintsOpened": 1,
-      "maxHintLevel": 1,
-      "vocabLookups": 3,
-      "finalSuccess": true,
-      "summary": { ... },
-      "events": [
-        {
-          "uid": "evt_...",
-          "code": "PS7",
-          "label": "Execution observation result",
-          "step": 3,
-          "relativeTimeMs": 432000,
-          "payload": { "attempt": 1, "actualDistance": 42, "meetsRequirement": true }
-        }
-      ]
-    }
-  ]
-}
-
-Response 200:
-{ "acceptedSessions": 1, "acceptedEvents": 18, "duplicatesSkipped": 0 }
+{ "profileId": 42, "consentVersion": "2026-11-v1", "language": "vi",
+  "sessions": [ { "sessionUid": "ses_...", "taskId": "...", ..., "events": [ ... ] } ] }
+→ { "acceptedSessions": 1, "acceptedEvents": 18, "duplicatesSkipped": 0 }
 ```
 
-### 5.2 Quy tắc validate (server)
+Quy tắc `/api/events` (giữ nguyên tinh thần kế hoạch cũ):
+- `POST`, same-origin, `no-store`, body ≤ 128 KB, ≤ 20 sessions × 500 events.
+- `code` phải nằm trong **allowlist** (PS1–PS11 + mã hệ thống liệt kê ở 3.4).
+- `payload`: JSON đơn giản, độ sâu ≤ 4, ≤ 4 KB/event; **tự loại** mọi field nhạy cảm không cần thiết.
+- IP/user-agent chỉ lưu hash (`IP_HASH_PEPPER`).
+- Rate limit qua `rate_limits` (ví dụ 30 req/phút/profile).
+- `consentVersion` không hợp lệ → `403 CONSENT_REQUIRED`.
+- Dedupe: `client_event_uid` unique + `on conflict do nothing`.
 
-- Chỉ nhận `POST`, bắt buộc **same-origin** (Origin khớp host), header `Cache-Control: no-store`.
-- Body ≤ 128 KB; tối đa 20 sessions × 500 events / 1 lần gửi.
-- `code` phải nằm trong **allowlist** (PS1–PS11 + các mã hệ thống đã liệt kê ở 4.4); không phải mã allowlist → loại bỏ event đó.
-- `payload`: chỉ giữ kiểu JSON đơn giản, giới hạn độ sâu 4, tổng ≤ 4 KB/event; **xoá mọi field nhạy cảm** (`studentName`, `displayName`, `email`, `phone`…) trước khi ghi.
-- `installId`: UUID hợp lệ, giới hạn độ dài 64 ký tự.
-- IP: chỉ lưu `sha256(IP_HASH_PEPPER + ip)`; user-agent chỉ lưu hash.
-- Rate limit: tái sử dụng `rate_limits` — ví dụ 30 request / phút / (ip+install).
-- Nếu `consentVersion` không khớp bản mới nhất đang bật → trả `403 CONSENT_REQUIRED`, client ngừng gửi và hiện lại banner đồng ý.
+### 4.2 Người sở hữu — xem & quản lý (bảo vệ bằng mật khẩu)
 
-### 5.3 Phía client (module mới `js/telemetry.js`, nhỏ)
+```http
+POST /api/owner/login      { username, password }   → cookie session (scrypt + CSRF)
+POST /api/owner/logout
+GET  /api/owner/me
 
-- Tự sinh `install_id` (UUID) lưu localStorage nếu chưa có.
-- Kiểm tra consent (localStorage `rml_consent_version` + server cho phép) → không có thì không gửi.
-- Gom event theo batch, flush khi: hoàn thành nhiệm vụ, rời trang (`visibilitychange`), hoặc đủ 50 events / 60 giây.
-- Dùng `navigator.sendBeacon` hoặc `fetch(keepalive)` → không làm chậm trang; lỗi mạng thì giữ queue và gửi lại sau, dedupe bằng `client_event_uid`.
-- **Không** thay đổi gì ở LogEngine: telemetry chỉ "nghe" event đã có và serialize lên server.
+GET  /api/owner/students?q=An&age=10                → danh sách hồ sơ (tên, tuổi, số phiên, lần cuối)
+GET  /api/owner/sessions?profileId=42&taskId=...&from=...&to=...&limit=50
+GET  /api/owner/events?sessionId=...                → chi tiết sự kiện 1 phiên
+GET  /api/owner/export.csv?from=...&to=...          → xuất CSV tổng hợp (profile, task, thời gian, kết quả, hint, vocab)
+POST /api/owner/erase    { profileId }              → xoá toàn bộ dữ liệu 1 học sinh (theo yêu cầu phụ huynh)
+```
+
+- Mọi endpoint owner đều yêu cầu session hợp lệ + CSRF; đăng nhập sai nhiều lần → khoá theo `rate_limits`.
+- Giao diện quản lý: **1 trang riêng** (`owner.html` hoặc `admin.html` tái tạo tối giản) nằm ngoài giao diện học sinh, **không đặt link** trong trang chính; chỉ bạn biết đường dẫn. Hiển thị: danh sách học sinh, lọc phiên theo task/ngày, xem chi tiết sự kiện, nút xuất CSV, nút xoá dữ liệu.
+- Trang học sinh và trang owner tách hoàn toàn: dữ liệu owner không bao giờ lộ qua API công khai.
 
 ---
 
-## 6. Cấu hình Neon + Vercel (bước thực hiện)
+## 5. Cấu hình Neon + Vercel
 
-### 6.1 Tạo database
+### 5.1 Tạo database
 
-1. Tạo project trên [Neon](https://neon.tech): region gần VN → `ap-southeast-1 (Singapore)` để độ trễ thấp.
-2. Gói: **Free (0.5 GB)** đủ cho giai đoạn 1; nếu muốn branching + backup dài hơn thì **Launch 1 GB** (~19 USD/tháng, có thể hạ xuống sau).
-3. Copy 2 chuỗi:
-   - `DATABASE_URL` dạng **pooled** (`...-pooler.ap-southeast-1.aws.neon.tech`) → cho serverless runtime.
-   - `DIRECT_URL` dạng **unpooled** (`...ap-southeast-1.aws.neon.tech`) → cho chạy migration/seed ở máy local.
+1. Neon project, region **`ap-southeast-1 (Singapore)`**.
+2. Gói **Free (0.5 GB)** đủ dùng; cần branching/backup dài hơn thì nâng **Launch 1 GB**.
+3. Copy `DATABASE_URL` (pooled, cho runtime) và `DIRECT_URL` (unpooled, cho script local).
 
-### 6.2 Biến môi trường trên Vercel
+### 5.2 Env trên Vercel
 
 | Biến | Giá trị | Ghi chú |
 |---|---|---|
-| `DATABASE_URL` | chuỗi pooled | Vercel Functions dùng |
-| `DIRECT_URL` | chuỗi unpooled | chỉ dùng khi chạy script local (không cần set trên Vercel) |
+| `DATABASE_URL` | chuỗi pooled | dùng cho Functions |
+| `DIRECT_URL` | chuỗi unpooled | chỉ cho script local |
 | `DATABASE_SSL` | `require` | mặc định |
-| `IP_HASH_PEPPER` | chuỗi ngẫu nhiên ≥ 32 ký tự | salt cho hash IP |
-| `CONSENT_VERSION` | `2026-11-v1` | đổi khi cập nhật chính sách → hỏi lại học sinh |
-| `APP_ORIGIN` | `https://robotmathlab.vercel.app` | allowlist same-origin (nếu cần thêm môi trường preview) |
+| `IP_HASH_PEPPER` | ngẫu nhiên ≥ 32 ký tự | salt hash IP |
+| `CONSENT_VERSION` | `2026-11-v1` | đổi khi cập nhật chính sách |
+| `APP_ORIGIN` | `https://robotmathlab.vercel.app` | allowlist same-origin |
+| `OWNER_USERNAME` / `OWNER_PASSWORD` | chỉ dùng lúc chạy `seed-owner` | không đặt lại sau khi tạo |
 
-### 6.3 Migration & kiểm tra
+### 5.3 Chạy & kiểm tra
 
 ```bash
-# 1) Cấu trúc lại schema: chuyển db/schema.sql hiện tại thành các file migration có đánh số
-#    (xem mục 7). Trước mắt chỉ cần file mới 003_analytics.sql + app_metrics + rate_limits.
-
-# 2) Chạy migration lên Neon (dùng DIRECT_URL)
-npm run db:migrate
-
-# 3) Kiểm tra endpoint
+npm run db:migrate        # tạo bảng (DIRECT_URL)
+npm run owner:seed        # tạo tài khoản owner duy nhất
 curl https://robotmathlab.vercel.app/api/health
 # mong đợi: {"status":"ok","db":true,"time":"..."}
 ```
 
 ---
 
-## 7. Chiến lược migration
-
-Hiện tại `db/schema.sql` là 1 file idempotent chạy lặp được — ổn cho giai đoạn đầu nhưng khó rollback khi có thay đổi lớn. Đề xuất:
+## 6. Migration
 
 ```
 db/migrations/
-  001_metrics_rate_limits.sql   (app_metrics + rate_limits — giữ từ schema cũ)
-  002_analytics.sql             (consents + learning_sessions + learning_events)
-  003_task_progress.sql         (chỉ khi chọn phương án C)
+  001_profiles_consent.sql   (student_profiles + consents)
+  002_learning.sql           (learning_sessions + learning_events + app_metrics + rate_limits)
+  003_owner.sql              (owner_accounts + owner_sessions)
 
-db/schema_migrations.sql        (bảng theo dõi version đã chạy)
+db/schema_migrations.sql     (bảng version + migrate.mjs chỉ chạy file chưa apply, mỗi file 1 transaction)
 ```
 
-- Thêm bảng `schema_migrations (version text primary key, applied_at timestamptz)`; `migrate.mjs` đọc thư mục, chỉ chạy file chưa apply, mỗi file trong 1 transaction.
-- Bảng auth cũ (accounts/classes/auth_sessions/login_events): **bỏ khỏi migration** vì không dùng; code tham chiếu (`lib/auth.js`, `lib/password.js`, `scripts/seed.mjs`, `scripts/reset-password.mjs`) nên xoá hoặc để nguyên không gọi — ghi rõ trong README để tránh nhầm lẫn.
+- Thay `db/schema.sql` idempotent hiện tại bằng cơ chế migration có version (an toàn khi sửa sau này).
+- DB production chưa từng tồn tại → không cần migration dữ liệu cũ; tạo mới sạch từ đầu.
 
 ---
 
-## 8. Sức chứa ~100 học sinh dùng đồng thời
-
-Ước lượng thực tế:
+## 7. Sức chứa ~100 học sinh
 
 | Hạng mục | Ước lượng |
 |---|---|
-| Sự kiện / phiên học | 15–30 events + 1 session |
-| Tần suất gửi | flush khi xong nhiệm vụ + rời trang (không có heartbeat liên tục) |
-| Lưu lượng giờ cao điểm (100 máy cùng làm) | ≈ 1–5 request/giây, vài chục dòng/giây |
-| Dung lượng / tháng | < 10 MB |
-| Kết nối DB | `postgres` pooler + `max: 1` mỗi function instance → Neon pooler xử lý mượt |
+| Sự kiện / phiên | 15–30 events + 1 session |
+| Tần suất ghi | flush khi xong nhiệm vụ / rời trang, không heartbeat liên tục |
+| Giờ cao điểm (100 máy) | 1–5 request/giây, vài chục dòng/giây |
+| Dung lượng / tháng | < 15 MB |
+| Kết nối | Neon pooler + `max: 1` / function instance |
 
-→ **Gói Neon Free là dư sức.** Bật autoscaling 0.25–1 CU để phòng lúc cả lớp cùng flush cuối tiết.
-
----
-
-## 9. Bảo mật & riêng tư (dữ liệu trẻ em)
-
-1. **Không PII**: không tên thật, không email, không số điện thoại; IP/user-agent chỉ lưu hash có salt (`IP_HASH_PEPPER`).
-2. **Consent rõ ràng**: banner đồng ý trước lần gửi đầu tiên, lưu `consents` (phiên bản + thời điểm); có nút từ chối → app vẫn chạy, chỉ không gửi dữ liệu.
-3. **Quyền xoá dữ liệu**: script `scripts/erase-install.mjs <install_id>` xoá toàn bộ dữ liệu của một máy khi được yêu cầu (GDPR trẻ em / yêu cầu phụ huynh).
-4. **Chống spam**: same-origin + rate limit + kích thước body + allowlist code.
-5. **Không expose DB**: không endpoint nào trả dữ liệu thô; báo cáo chỉ qua SQL trực tiếp trên Neon hoặc script vận hành.
+→ Neon Free dư sức; bật autoscaling 0.25–1 CU cho lúc cả lớp flush cuối tiết.
 
 ---
 
-## 10. Bảo trì & dọn dẹp
+## 8. Bảo mật & riêng tư
 
-- **Vercel Cron** (`vercel.json` thêm `"crons": [{ "path": "/api/cron/cleanup", "schedule": "0 3 * * *" }]`) gọi `api/cron/cleanup.js`:
-  - xoá `rate_limits` cũ hơn 2 ngày;
-  - xoá `learning_sessions`/`learning_events` quá hạn lưu trữ (mặc định giữ 24 tháng cho nghiên cứu, tuỳ chỉnh);
-  - cập nhật `app_metrics.peak_online`.
-- **Backup**: Neon đã có Point-in-Time Restore (Free 7 ngày); muốn chắc hơn thì thêm GitHub Action dump hàng tuần.
-- **Theo dõi**: `/api/health` + số dòng tăng theo ngày (`select count(*) from learning_events where created_at > now() - interval '1 day'`).
+1. **Học sinh**: chỉ tên + tuổi (pseudonymous), không email/số điện thoại; IP/user-agent chỉ hash.
+2. **Consent**: banner trước lần gửi đầu; không đồng ý → vẫn học, không ghi dữ liệu.
+3. **Người sở hữu**: mật khẩu scrypt + session HttpOnly + CSRF + rate limit; chỉ 1 tài khoản; trang quản lý không liên kết từ giao diện học sinh.
+4. **Quyền xoá**: `POST /api/owner/erase` (hoặc script `scripts/erase-profile.mjs`) để xoá toàn bộ dữ liệu 1 học sinh khi phụ huynh yêu cầu.
+5. **Chống spam**: same-origin, rate limit, giới hạn kích thước, allowlist mã sự kiện.
 
 ---
 
-## 11. Lộ trình đề xuất
+## 9. Bảo trì & dọn dẹp
 
-| Giai đoạn | Việc | Kết quả kiểm chứng |
+- Vercel Cron `0 3 * * *` → `/api/cron/cleanup`: xoá `rate_limits` cũ, phiên hết hạn, cập nhật `app_metrics`.
+- Neon PITR backup (Free 7 ngày); tuỳ chọn GitHub Action dump hàng tuần.
+- Lưu trữ dữ liệu nghiên cứu mặc định 24 tháng (điều chỉnh được); xoá sớm hơn khi có yêu cầu.
+- Theo dõi: `/api/health` + đếm dòng mới theo ngày.
+
+---
+
+## 10. Lộ trình
+
+| Giai đoạn | Việc | Kiểm chứng |
 |---|---|---|
-| 1 (tuần này) | Chốt phương án (A/B/C); tạo Neon + env Vercel | `/api/health` → `db: true` |
-| 2 | Migration mới (analytics), endpoint `/api/events` + test | Gửi 1 batch mẫu, đọc lại đúng dữ liệu |
-| 3 | Module `js/telemetry.js` + banner consent | Mở trang, làm 1 nhiệm vụ, thấy dữ liệu xuất hiện trong Neon |
-| 4 | Script xuất báo cáo CSV cho NCKH | Xuất được bảng tổng hợp theo task/step |
+| 1 | Tạo Neon + env Vercel (bạn) | `/api/health` → `db: true` |
+| 2 | Migration 001–003 + script `owner:seed` | Bảng được tạo, owner đăng nhập được |
+| 3 | `/api/students` + `/api/events` + module `js/telemetry.js` + banner consent | Làm 1 nhiệm vụ → dữ liệu xuất hiện trong Neon |
+| 4 | Trang quản lý owner + export CSV + xoá dữ liệu | Bạn xem/lọc/xuất được toàn bộ dữ liệu |
+| 5 | Script báo cáo NCKH (tổng hợp theo task/step/tuổi) | Xuất được bảng phân tích |
 
-> Điểm quan trọng nhất: **site vẫn phải chạy mượt khi DB lỗi** — telemetry là phụ, học là chính. Mọi lệnh ghi đều fire-and-forget, có timeout ngắn và không bao giờ chặn giao diện.
+> Cột mốc quan trọng nhất vẫn là: **site chạy mượt khi DB lỗi** — mọi ghi dữ liệu đều fire-and-forget, không chặn giao diện.

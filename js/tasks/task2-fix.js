@@ -19,8 +19,8 @@ window.Task2Fix = {
   taglineVi: 'Kiểm tra, phát hiện, giải thích và điều chỉnh',
 
   // Problem description: neutral, accurate
-  descriptionEn: 'A robot travels a [distance]* of 1.2 [kilometer]* (1,2 km) at a constant [speed]* of 4 [meter]* per second (4 m/s). How many minutes does the [robot]* need to [reach]* the [destination]*? First, test the proposed plan ([time]* = 240 s) on the Virtual Robot Track, observe where the robot stops, and verify the outcome!',
-  descriptionVi: 'Một rô-bốt đi quãng đường 1,2 km với vận tốc không đổi 4 m/s. Hỏi rô-bốt cần bao nhiêu phút để đến đích? Trước tiên, hãy chạy thử phương án đề xuất (thời gian 240 giây) trên Virtual Robot Track, quan sát điểm dừng của rô-bốt và kiểm chứng kết quả!',
+  descriptionEn: 'A robot travels a [distance]* of 1.2 [kilometer]* (1,2 km) at a constant [speed]* of 4 [meter]* per second (4 m/s). How many minutes does the [robot]* need to [reach]* the [destination]*?',
+  descriptionVi: 'Một rô-bốt đi quãng đường 1,2 km với vận tốc không đổi 4 m/s. Hỏi rô-bốt cần bao nhiêu phút để đến đích?',
 
   // Problem parameters
   trackLength: 1400, // 1400m track on canvas (allows clear view of 960m stop and 1200m target)
