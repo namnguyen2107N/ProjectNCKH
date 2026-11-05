@@ -265,6 +265,12 @@
           <span id="icon-3d">🚀</span>
         </a>
 
+        <!-- Learning Journal Button (Icon-only) -->
+        <button type="button" class="btn-header-icon btn-icon-journal" id="btn-header-journal"
+          title="Nhật ký học tập" aria-label="Nhật ký học tập">
+          <span id="journal-icon">📒</span>
+        </button>
+
         <!-- Sound Toggle (Icon-only) -->
         <button type="button" class="btn-header-icon" id="btn-toggle-sound" title="Sound / Âm thanh"
           aria-label="Toggle Sound">
@@ -435,6 +441,15 @@
       }
     }
 
+    const headerJournalBtn = document.getElementById('btn-header-journal');
+    if (headerJournalBtn) {
+      headerJournalBtn.onclick = function () {
+        if (window.LogEngine && typeof window.LogEngine.openJournal === 'function') {
+          window.LogEngine.openJournal();
+        }
+      };
+    }
+
     if (soundBtn) {
       soundBtn.onclick = function () {
         if (window.SoundFX) {
@@ -475,6 +490,11 @@
       if (btn3D) {
         btn3D.title = isVi ? 'Môi trường thử nghiệm 3D' : '3D Simulation Test Lab';
         btn3D.setAttribute('aria-label', isVi ? 'Môi trường thử nghiệm 3D' : '3D Simulation Test Lab');
+      }
+      const journalBtn = document.getElementById('btn-header-journal');
+      if (journalBtn) {
+        journalBtn.title = isVi ? 'Nhật ký học tập' : 'Learning Journal';
+        journalBtn.setAttribute('aria-label', isVi ? 'Nhật ký học tập' : 'Learning Journal');
       }
       if (soundBtn) soundBtn.title = isVi ? 'Bật/Tắt âm thanh' : 'Toggle Sound FX';
       const settingsBtn = document.getElementById('btn-toggle-settings');

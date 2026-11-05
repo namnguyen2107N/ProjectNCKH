@@ -686,9 +686,6 @@ class AppController {
                 <div class="badge-name">${this.escapeHtml(this.currentStudent)} ✏️</div>
               </div>
             </div>
-            <button type="button" class="journal-hub-button" id="btn-open-learning-journal">
-              ${t('btn_journal')}
-            </button>
           </div>
         </div>
 
@@ -745,10 +742,6 @@ class AppController {
 
       </div>
     `;
-
-    document.getElementById('btn-open-learning-journal')?.addEventListener('click', () => {
-      window.LogEngine?.openJournal();
-    });
 
     // Synchronize Sparky floating companion bubble
     const sparkyBubble = document.getElementById('sparky-bubble');
