@@ -337,6 +337,25 @@ body.kid-theme {
   box-shadow: 0 1px 0 #f59e0b;
 }
 
+.btn-icon-3d {
+  background: #ede9fe;
+  border-color: #c4b5fd;
+  color: #6d28d9;
+  box-shadow: 0 3px 0 #7c3aed;
+  text-decoration: none;
+}
+
+.btn-icon-3d:hover {
+  background: #ddd6fe;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 0 #7c3aed;
+}
+
+.btn-icon-3d:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #7c3aed;
+}
+
 /* Legacy classes kept for backward compatibility */
 .btn-header-tool {
   display: inline-flex;
