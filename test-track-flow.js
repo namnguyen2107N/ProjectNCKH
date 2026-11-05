@@ -397,14 +397,13 @@ function runTests() {
   const engine2 = new TaskEngine('main-view');
   engine2.loadTask(window.Task2Fix, 'Student B');
 
-  // Step 1: distance_km = 1.2, distance_m = 1200, speed = 4, target = time_minutes
+  // Step 1: distance_km = 1.2, speed = 4, target = time_minutes
   document.getElementById('input-s1-distance_km').value = '1,2';
-  document.getElementById('input-s1-distance_m').value = '1200';
   document.getElementById('input-s1-speed').value = '4';
   selectRadio('s1-target-qty', 'time_minutes');
   document.getElementById('btn-submit-step-1').onclick();
   if (engine2.polya.currentStep !== 2) throw new Error('Expected Step 2 in Task 2');
-  console.log('✓ Task 2 Step 1 completed (1.2km = 1200m, 4m/s, target: time in minutes)');
+  console.log('✓ Task 2 Step 1 completed (1.2km, 4m/s, target: time in minutes)');
 
   // Step 2: formula f1 (t = 1200 ÷ 4 = 300s = 5min), calc = 300
   selectRadio('s2-formula', 'f1');

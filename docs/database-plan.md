@@ -12,6 +12,23 @@
 
 ---
 
+## 0. Công nghệ xây dựng database (không dùng PHP)
+
+| Lớp | Công nghệ | Ngôn ngữ |
+|---|---|---|
+| Database engine | Neon Postgres (PostgreSQL 14+) | — |
+| Định nghĩa schema (bảng/index) | file `db/migrations/*.sql` | **SQL (PostgreSQL)** |
+| API / logic phía server | Vercel Serverless Functions (`api/*.js`, `lib/*.js`) | JavaScript (Node.js) |
+| Truy vấn dữ liệu | thư viện `postgres` (Postgres.js) | JavaScript + SQL parameterized |
+| Migration / seed / script vận hành | `scripts/*.mjs` | JavaScript (Node.js) |
+
+- **Có dùng SQL, không dùng PHP.** Không dùng MySQL, phpMyAdmin, Apache.
+- Schema viết bằng **SQL thuần** (DDL): `CREATE TABLE`, ràng buộc `CHECK`/`UNIQUE`/`FOREIGN KEY`, `CREATE INDEX`.
+- Truy vấn chạy bằng **SQL parameterized** (dạng `sql\`...\``, không ghép chuỗi) → tránh SQL injection.
+- Postgres.js dùng cơ chế `prepare: false` khi đi qua Neon pooler (PgBouncer transaction mode).
+
+---
+
 ## 1. Mô hình tổng thể
 
 ```

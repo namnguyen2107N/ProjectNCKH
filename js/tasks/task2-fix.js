@@ -35,11 +35,10 @@ window.Task2Fix = {
 
   // Step 1: Understand
   step1: {
-    promptEn: 'Identify the given quantities and unit conversions from the problem:',
-    promptVi: 'Xác định các dữ kiện và phép đổi đơn vị từ đề bài:',
+    promptEn: 'Identify the given quantities from the problem:',
+    promptVi: 'Xác định các dữ kiện từ đề bài:',
     fields: [
       { key: 'distance_km', label: 'Given Distance (km)', unit: 'km', expected: 1.2 },
-      { key: 'distance_m', label: 'Convert to meters (1,2 km = ? m)', unit: 'm', expected: 1200 },
       { key: 'speed', label: 'Speed (v)', unit: 'm/s', expected: 4 }
     ],
     targetQuestionEn: 'What is the required target quantity and unit to find?',
