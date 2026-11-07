@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Robot Math Lab — Quản trị dữ liệu</title>
+  <link rel="stylesheet" href="css/owner.css" />
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📒</text></svg>" />
+</head>
+<body>
+  <header class="owner-header">
+    <div class="owner-brand">
+      <span class="owner-brand-icon" aria-hidden="true">📒</span>
+      <div>
+        <div class="owner-brand-title">Robot Math Lab</div>
+        <div class="owner-brand-sub">Khu vực dữ liệu nghiên cứu</div>
+      </div>
+    </div>
+    <button type="button" class="owner-logout" id="btn-logout" hidden>Đăng xuất</button>
+  </header>
+
+  <main class="owner-main">
+    <section class="owner-login-card" id="login-view">
+      <h1>Đăng nhập quản trị</h1>
+      <p>Chỉ người phụ trách nghiên cứu mới xem được dữ liệu học tập của học sinh.</p>
+      <form id="login-form" autocomplete="on">
+        <label for="owner-username">Tên đăng nhập</label>
+        <input id="owner-username" name="username" type="text" autocomplete="username" required />
+        <label for="owner-password">Mật khẩu</label>
+        <input id="owner-password" name="password" type="password" autocomplete="current-password" required />
+        <div class="owner-error" id="login-error" role="alert" hidden></div>
+        <button type="submit" class="owner-btn owner-btn-primary" id="btn-login">Đăng nhập</button>
+      </form>
+    </section>
+
+    <section id="dashboard-view" hidden>
+      <div class="owner-toolbar">
+        <div class="owner-filters">
+          <label class="owner-field">
+            <span>Tìm học sinh</span>
+            <input id="filter-q" type="search" placeholder="Nhập tên..." />
+          </label>
+          <label class="owner-field">
+            <span>Nhiệm vụ</span>
+            <select id="filter-task">
+              <option value="">Tất cả</option>
+              <option value="task1-reach">Nhiệm vụ 1 — Hành trình đến đích</option>
+              <option value="task2-fix">Nhiệm vụ 2 — Chuyến đi bất ngờ</option>
+              <option value="task3-new">Nhiệm vụ 3 — Thử thách đúng giờ</option>
+            </select>
+          </label>
+          <label class="owner-field">
+            <span>Từ ngày</span>
+            <input id="filter-from" type="date" />
+          </label>
+          <label class="owner-field">
+            <span>Đến ngày</span>
+            <input id="filter-to" type="date" />
+          </label>
+          <div class="owner-filter-actions">
+            <button type="button" class="owner-btn owner-btn-primary" id="btn-apply">Lọc dữ liệu</button>
+            <button type="button" class="owner-btn" id="btn-reset">Xoá lọc</button>
+            <button type="button" class="owner-btn" id="btn-export">Xuất CSV</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="owner-stats">
+        <div class="owner-stat">
+          <span class="owner-stat-label">Học sinh</span>
+          <strong id="stat-students">0</strong>
+        </div>
+        <div class="owner-stat">
+          <span class="owner-stat-label">Phiên học</span>
+          <strong id="stat-sessions">0</strong>
+        </div>
+        <div class="owner-stat">
+          <span class="owner-stat-label">Phiên đạt đích</span>
+          <strong id="stat-success">0</strong>
+        </div>
+      </div>
+
+      <div class="owner-grid">
+        <section class="owner-panel">
+          <div class="owner-panel-head">
+            <h2>Học sinh</h2>
+            <span class="owner-muted" id="students-count"></span>
+          </div>
+          <div class="owner-table-wrap">
+            <table class="owner-table">
+              <thead>
+                <tr>
+                  <th>Tên</th>
+                  <th>Tuổi</th>
+                  <th>Phiên</th>
+                  <th>Đạt</th>
+                  <th>Lần cuối</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="students-body"></tbody>
+            </table>
+            <div class="owner-empty" id="students-empty" hidden>Chưa có học sinh nào.</div>
+          </div>
+        </section>
+
+        <section class="owner-panel">
+          <div class="owner-panel-head">
+            <h2>Phiên học</h2>
+            <span class="owner-muted" id="sessions-count"></span>
+          </div>
+          <div class="owner-table-wrap">
+            <table class="owner-table">
+              <thead>
+                <tr>
+                  <th>Thời gian</th>
+                  <th>Học sinh</th>
+                  <th>Nhiệm vụ</th>
+                  <th>Thời lượng</th>
+                  <th>Lần thử</th>
+                  <th>Hint</th>
+                  <th>Từ điển</th>
+                  <th>Kết quả</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="sessions-body"></tbody>
+            </table>
+            <div class="owner-empty" id="sessions-empty" hidden>Chưa có phiên học nào.</div>
+          </div>
+        </section>
+      </div>
+
+      <section class="owner-panel owner-events-panel" id="events-panel" hidden>
+        <div class="owner-panel-head">
+          <h2>Chi tiết phiên <span class="owner-muted" id="events-title"></span></h2>
+          <button type="button" class="owner-btn" id="btn-close-events">Đóng</button>
+        </div>
+        <div class="owner-table-wrap">
+          <table class="owner-table">
+            <thead>
+              <tr>
+                <th>Thời điểm</th>
+                <th>Mã</th>
+                <th>Bước</th>
+                <th>Nhãn</th>
+                <th>Dữ liệu</th>
+              </tr>
+            </thead>
+            <tbody id="events-body"></tbody>
+          </table>
+          <div class="owner-empty" id="events-empty" hidden>Phiên này chưa có sự kiện.</div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div class="owner-toast" id="owner-toast" role="status" hidden></div>
+  <script src="js/owner.js"></script>
+</body>
+</html>

@@ -1,6 +1,13 @@
 # Đăng nhập, tài khoản học sinh và theo dõi truy cập
 ## Robot Math Lab — Vercel Functions + Neon Postgres
 
+> ⚠️ **TÀI LIỆU LỖI THỜI (07/11/2026):** cổng đăng nhập học sinh đã được gỡ. Hiện tại:
+> - Học sinh chỉ nhập **tên + tuổi** ở màn hình bắt đầu (không mật khẩu).
+> - Dữ liệu học tập được gửi ẩn danh sau khi đồng ý.
+> - Chỉ chủ dự án xem dữ liệu qua `owner.html`.
+>
+> Xem `docs/owner-console.md` và `docs/database-plan.md`. Phần còn lại dưới đây chỉ để tham khảo lịch sử.
+
 > Cập nhật: 2026-11-04. Dashboard admin đã được gỡ; tài liệu này chỉ còn luồng học sinh và các API auth cần thiết. Phương án này thay thế phần PHP trong `docs/backend-php-plan.md` cho môi trường Vercel hiện tại.
 
 ---

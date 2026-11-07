@@ -1,4 +1,9 @@
--- Robot Math Lab - authentication, access tracking, and research consent schema
+-- LEGACY / NOT APPLIED.
+-- The old authentication schema was replaced by db/migrations/001-003.
+-- `npm run db:migrate` now applies the numbered migrations only.
+-- Kept as a historical reference for the removed login gate.
+--
+-- Robot Math Lab - old authentication, access tracking, and research consent schema
 -- Target: Neon Postgres / PostgreSQL 14+
 -- Idempotent: safe to run more than once.
 

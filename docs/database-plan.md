@@ -10,6 +10,23 @@
 >
 > Trạng thái repo hiện tại (commit `87644d2`): site standalone không có auth; dữ liệu học tập đang nằm ở `localStorage`; production **chưa có DB** (`/api/health` = 503); `db/schema.sql` còn bảng auth cũ nhưng không ai dùng.
 
+## Trạng thái triển khai (07/11/2026)
+
+Đã triển khai phần code theo kế hoạch này (chưa cấu hình Neon production):
+
+- `db/migrations/001_profiles_consent.sql` — `student_profiles` (tên, tuổi, device token) + `consents`.
+- `db/migrations/002_learning.sql` — `learning_sessions`, `learning_events`, `app_metrics`, `rate_limits`.
+- `db/migrations/003_owner.sql` — `owner_accounts`, `owner_sessions`.
+- `scripts/migrate.mjs` — chạy migration có version qua bảng `schema_migrations`.
+- `scripts/seed-owner.mjs` — tạo/reset tài khoản chủ duy nhất (`npm run owner:seed`).
+- API học sinh: `api/students.js`, `api/consent.js`, `api/events.js`.
+- API chủ: `api/owner/login|logout|me|students|sessions|events|export|erase.js`.
+- Trang quản lý: `owner.html` + `css/owner.css` + `js/owner.js`.
+- Client: `js/telemetry.js` (consent + queue + gửi nhật ký), ô tên/tuổi ở splash.
+- Dọn code auth cũ: bỏ `lib/auth.js`, `lib/metrics.js`, `scripts/seed.mjs`, `scripts/reset-password.mjs`; `db/schema.sql` chỉ còn là tài liệu lịch sử.
+
+**Chưa kiểm chứng end-to-end với Neon** vì production chưa có `DATABASE_URL`. Sau khi tạo Neon, chạy `npm run db:migrate` và `npm run owner:seed` rồi kiểm tra `/api/health`.
+
 ---
 
 ## 0. Công nghệ xây dựng database (không dùng PHP)
@@ -69,12 +86,13 @@ Neon Postgres (pooled, transaction mode, region Singapore)
 
 ```sql
 create table if not exists student_profiles (
-  id           bigserial primary key,
-  display_name text not null,
-  age          smallint not null,
-  created_at   timestamptz not null default now(),
-  last_seen_at timestamptz,
-  deactivated_at timestamptz,
+  id                bigserial primary key,
+  display_name      text not null,
+  age               smallint not null,
+  access_token_hash text not null,   -- sha256 của device token, không lưu token thô
+  created_at        timestamptz not null default now(),
+  last_seen_at      timestamptz,
+  deactivated_at    timestamptz,
   constraint student_profiles_name_len check (char_length(display_name) between 1 and 50),
   constraint student_profiles_age_chk   check (age between 3 and 18)
 );
@@ -82,9 +100,9 @@ create table if not exists student_profiles (
 create index if not exists student_profiles_name_idx on student_profiles (lower(display_name));
 ```
 
-- Tạo mới: `POST /api/students { displayName, age }` → trả `{ profileId }`, client lưu `rml_profile_id`.
-- Chọn lại: client gửi danh sách `profileId` đã lưu trên máy → server trả thông tin còn hợp lệ.
-- Không trùng lặp kiểm soát cứng: mỗi máy giữ danh sách id riêng; nếu cùng tên+tuổi được tạo 2 lần thì đó là 2 hồ sơ khác nhau (chấp nhận, vì không có mật khẩu để phân biệt). Có thể thêm `unique (display_name, age)` nếu bạn muốn gộp, nhưng mặc định **không unique** để tránh chặn nhầm 2 học sinh trùng tên.
+- Tạo mới: `POST /api/students { displayName, age }` → trả `{ profileId, profileToken }`; client lưu `rml_profile_id` + `rml_profile_token` trong localStorage.
+- Lần sau: client gửi kèm `profileId + profileToken` để cập nhật tên/tuổi; token cũng là "chìa khoá thiết bị" để ghi nhật ký, tránh người khác ghi đè hồ sơ.
+- Không trùng lặp kiểm soát cứng: mỗi máy giữ một hồ sơ; nếu cùng tên+tuổi được tạo 2 lần thì đó là 2 hồ sơ khác nhau (chấp nhận, vì không có mật khẩu để phân biệt). Có thể thêm `unique (display_name, age)` nếu bạn muốn gộp, nhưng mặc định **không unique** để tránh chặn nhầm 2 học sinh trùng tên.
 
 ### 3.2 Sự đồng ý nghiên cứu
 
@@ -212,14 +230,19 @@ create table if not exists rate_limits (
 
 ```http
 POST /api/students
-{ "displayName": "An", "age": 10 }        → { "profileId": 42 }
+{ "displayName": "An", "age": 10, "consentVersion": "2026-11-v1" }
+→ { "profileId": 42, "profileToken": "..." }
 
-GET /api/students/:ids?ids=1,2,3           → thông tin các hồ sơ còn hợp lệ (để máy hiện danh sách chọn)
+POST /api/students                         (cập nhật hồ sơ đã có)
+{ "profileId": 42, "profileToken": "...", "displayName": "An", "age": 10 }
+
+POST /api/consent
+{ "profileId": 42, "profileToken": "...", "consentVersion": "2026-11-v1" }
 
 POST /api/events
-{ "profileId": 42, "consentVersion": "2026-11-v1", "language": "vi",
+{ "profileId": 42, "profileToken": "...", "consentVersion": "2026-11-v1", "language": "vi",
   "sessions": [ { "sessionUid": "ses_...", "taskId": "...", ..., "events": [ ... ] } ] }
-→ { "acceptedSessions": 1, "acceptedEvents": 18, "duplicatesSkipped": 0 }
+→ { "acceptedSessions": 1, "acceptedEvents": 18 }
 ```
 
 Quy tắc `/api/events` (giữ nguyên tinh thần kế hoạch cũ):
@@ -228,8 +251,10 @@ Quy tắc `/api/events` (giữ nguyên tinh thần kế hoạch cũ):
 - `payload`: JSON đơn giản, độ sâu ≤ 4, ≤ 4 KB/event; **tự loại** mọi field nhạy cảm không cần thiết.
 - IP/user-agent chỉ lưu hash (`IP_HASH_PEPPER`).
 - Rate limit qua `rate_limits` (ví dụ 30 req/phút/profile).
-- `consentVersion` không hợp lệ → `403 CONSENT_REQUIRED`.
+- `consentVersion` lệch version server → `409 CONSENT_VERSION_MISMATCH`.
+- Chưa có dòng consent trong DB → `403 CONSENT_REQUIRED`.
 - Dedupe: `client_event_uid` unique + `on conflict do nothing`.
+- `profileToken` phải khớp hash trong `student_profiles` → không ghi được vào hồ sơ của người khác.
 
 ### 4.2 Người sở hữu — xem & quản lý (bảo vệ bằng mật khẩu)
 
@@ -314,7 +339,7 @@ db/schema_migrations.sql     (bảng version + migrate.mjs chỉ chạy file ch�
 
 ## 8. Bảo mật & riêng tư
 
-1. **Học sinh**: chỉ tên + tuổi (pseudonymous), không email/số điện thoại; IP/user-agent chỉ hash.
+1. **Học sinh**: chỉ tên + tuổi (pseudonymous), không email/số điện thoại; IP/user-agent chỉ hash. Nội dung tự luận (`TASK_REFLECTION`) **không gửi lên server**, chỉ lưu độ dài; payload sự kiện được lọc key nhạy cảm ở cả client và server.
 2. **Consent**: banner trước lần gửi đầu; không đồng ý → vẫn học, không ghi dữ liệu.
 3. **Người sở hữu**: mật khẩu scrypt + session HttpOnly + CSRF + rate limit; chỉ 1 tài khoản; trang quản lý không liên kết từ giao diện học sinh.
 4. **Quyền xoá**: `POST /api/owner/erase` (hoặc script `scripts/erase-profile.mjs`) để xoá toàn bộ dữ liệu 1 học sinh khi phụ huynh yêu cầu.

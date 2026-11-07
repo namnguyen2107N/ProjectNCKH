@@ -7,6 +7,7 @@ class AppController {
   constructor() {
     this.selectedLanguage = localStorage.getItem('rml_language') || localStorage.getItem('rml_ui_language') || (window.I18N ? window.I18N.currentLang : 'vi');
     this.currentStudent = localStorage.getItem('rml_student_name') || (this.selectedLanguage === 'vi' ? 'Bé Yêu Toán' : 'Math Explorer');
+    this.currentAge = Number.parseInt(localStorage.getItem('rml_student_age') || '', 10) || null;
     this.taskEngine = null;
     this.activeTaskId = null;
     this.splashScreen = null;
@@ -490,12 +491,27 @@ class AppController {
       nameInput.addEventListener('change', (e) => this.setStudentName(e.target.value));
     }
 
+    // Student Age Input (light sign-in, used for the research profile)
+    const ageInput = document.getElementById('splash-student-age');
+    if (ageInput) {
+      if (this.currentAge) ageInput.value = String(this.currentAge);
+      const saveAge = (e) => {
+        const age = Number.parseInt(String(e.target.value || ''), 10);
+        if (Number.isInteger(age) && age >= 3 && age <= 18) {
+          this.currentAge = age;
+          localStorage.setItem('rml_student_age', String(age));
+        }
+      };
+      ageInput.addEventListener('input', saveAge);
+      ageInput.addEventListener('change', saveAge);
+    }
+
     // Keyboard navigation (Strictly Arrow Left/Right or A/D to switch language, Enter to start)
     document.addEventListener('keydown', (e) => {
       if (!this.splashScreen || this.splashScreen.classList.contains('hidden')) return;
 
-      // When user is typing inside the name input, Enter triggers start, other keys type normally
-      if (document.activeElement === nameInput) {
+      // When typing in the name/age inputs, Enter triggers start; other keys type normally.
+      if (document.activeElement === nameInput || document.activeElement === ageInput) {
         if (e.key === 'Enter') {
           e.preventDefault();
           this.completeStartScreen();
@@ -550,10 +566,14 @@ class AppController {
 
       const nameLabel = document.getElementById('splash-name-label');
       if (nameLabel) {
-        nameLabel.innerText = lang === 'vi' ? '🧑‍🎓 TÊN BẠN:' : '🧑‍🎓 STUDENT:';
+        nameLabel.innerText = lang === 'vi' ? '🧑‍🎓 TÊN BẠN:' : '🧑‍🎓 YOUR NAME:';
+      }
+      const ageLabel = document.getElementById('splash-age-label');
+      if (ageLabel) {
+        ageLabel.innerText = lang === 'vi' ? '🎂 TUỔI:' : '🎂 AGE:';
       }
 
-      // Update name input placeholder and value if default
+      // Update input placeholders and default student name
       const nameInput = document.getElementById('splash-student-name');
       if (nameInput) {
         if (lang === 'vi') {
@@ -565,6 +585,8 @@ class AppController {
         }
         nameInput.value = this.currentStudent;
       }
+      const ageInput = document.getElementById('splash-student-age');
+      if (ageInput) ageInput.placeholder = lang === 'vi' ? 'Ví dụ: 10' : 'e.g. 10';
 
       // Update welcome board text dynamically if rendered/open
       this.updateWelcomeBoardContent(lang);
@@ -610,6 +632,8 @@ class AppController {
 
       const nameInput = document.getElementById('splash-student-name');
       if (nameInput) nameInput.value = this.currentStudent;
+      const ageInput = document.getElementById('splash-student-age');
+      if (ageInput && this.currentAge) ageInput.value = String(this.currentAge);
 
       const soundIcon = document.getElementById('splash-sound-icon');
       if (soundIcon && window.SoundFX) {
@@ -630,10 +654,37 @@ class AppController {
   }
 
   completeStartScreen() {
+    const isVi = window.I18N ? window.I18N.isVietnamese() : true;
     const nameInput = document.getElementById('splash-student-name');
-    if (nameInput && nameInput.value.trim()) {
-      this.setStudentName(nameInput.value.trim());
+    const ageInput = document.getElementById('splash-student-age');
+    const errorBox = document.getElementById('splash-profile-error');
+    const name = String(nameInput?.value || this.currentStudent || '').trim();
+    const age = Number.parseInt(String(ageInput?.value || ''), 10);
+
+    const showError = (message, focusEl) => {
+      if (errorBox) {
+        errorBox.textContent = message;
+        errorBox.hidden = false;
+      }
+      focusEl?.focus?.();
+    };
+
+    if (!name) {
+      showError(isVi ? 'Vui lòng nhập tên của bạn.' : 'Please enter your name.', nameInput);
+      return;
     }
+    if (!Number.isInteger(age) || age < 3 || age > 18) {
+      showError(
+        isVi ? 'Vui lòng nhập tuổi từ 3 đến 18.' : 'Please enter an age between 3 and 18.',
+        ageInput
+      );
+      return;
+    }
+
+    if (errorBox) errorBox.hidden = true;
+    this.currentAge = age;
+    localStorage.setItem('rml_student_age', String(age));
+    this.setStudentName(name);
 
     sessionStorage.setItem('rml_started', 'true');
     localStorage.setItem('rml_splash_done', 'true');
@@ -656,6 +707,7 @@ class AppController {
 
     setTimeout(() => {
       this.hideSplashScreen();
+      window.RMLTelemetry?.begin?.({ displayName: name, age });
       this.renderTaskSelection();
     }, 450);
   }
