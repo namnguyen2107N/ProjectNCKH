@@ -264,7 +264,7 @@
 
   async function logout() {
     try {
-      await request('/api/owner/logout', { method: 'POST', csrf: true });
+      await request('/api/owner/session', { method: 'POST', csrf: true });
     } catch { /* session may already be gone */ }
     showLogin();
     toast('Đã đăng xuất.');
@@ -317,7 +317,7 @@
   async function boot() {
     bind();
     try {
-      const payload = await request('/api/owner/me');
+      const payload = await request('/api/owner/session');
       state.owner = payload.data.owner;
       state.csrf = payload.data.csrf_token;
       showDashboard();

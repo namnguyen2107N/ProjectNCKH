@@ -20,7 +20,7 @@
 - `scripts/migrate.mjs` — chạy migration có version qua bảng `schema_migrations`.
 - `scripts/seed-owner.mjs` — tạo/reset tài khoản chủ duy nhất (`npm run owner:seed`).
 - API học sinh: `api/students.js`, `api/consent.js`, `api/events.js`.
-- API chủ: `api/owner/login|logout|me|students|sessions|events|export|erase.js`.
+- API chủ: `api/owner/login|session|students|sessions|events|export|erase.js`.
 - Trang quản lý: `owner.html` + `css/owner.css` + `js/owner.js`.
 - Client: `js/telemetry.js` (consent + queue + gửi nhật ký), ô tên/tuổi ở splash.
 - Dọn code auth cũ: bỏ `lib/auth.js`, `lib/metrics.js`, `scripts/seed.mjs`, `scripts/reset-password.mjs`; `db/schema.sql` chỉ còn là tài liệu lịch sử.
@@ -260,8 +260,8 @@ Quy tắc `/api/events` (giữ nguyên tinh thần kế hoạch cũ):
 
 ```http
 POST /api/owner/login      { username, password }   → cookie session (scrypt + CSRF)
-POST /api/owner/logout
-GET  /api/owner/me
+GET  /api/owner/session                       → owner hiện tại + CSRF token
+POST /api/owner/session                       → đăng xuất (CSRF)
 
 GET  /api/owner/students?q=An&age=10                → danh sách hồ sơ (tên, tuổi, số phiên, lần cuối)
 GET  /api/owner/sessions?profileId=42&taskId=...&from=...&to=...&limit=50
