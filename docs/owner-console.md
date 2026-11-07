@@ -92,6 +92,7 @@ Không có mật khẩu học sinh. Đây là "đăng nhập nhẹ" phục vụ 
   - Xoá phiên học cũ hơn `LEARNING_RETENTION_DAYS` (mặc định 730 ngày).
 - Nếu đặt `CRON_SECRET` trên Vercel, cron request phải có header `Authorization: Bearer <CRON_SECRET>`.
 - Backup: dùng Point-in-Time Restore của Neon; nên tạo branch định kỳ trước khi sửa dữ liệu lớn.
+- Gói Vercel Hobby giới hạn **12 Serverless Functions**; project đang dùng đúng 12. Nếu thêm endpoint mới, phải gộp vào function hiện có hoặc nâng gói.
 
 ---
 
