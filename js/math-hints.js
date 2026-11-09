@@ -62,13 +62,9 @@ class MathHints {
               <span class="modal-icon">💡</span>
               <div>
                 <h3 class="modal-title">${t('hints_title')}</h3>
-                <small class="modal-subtitle">${t('hints_subtitle')}</small>
               </div>
             </div>
             <button type="button" class="btn-close-modal" id="btn-close-hints">&times;</button>
-          </div>
-          <div class="hints-intro-note">
-            ${t('hints_intro')}
           </div>
           <div class="hints-container" id="hints-level-list">
             <!-- Dynamic hint cards -->
@@ -83,8 +79,6 @@ class MathHints {
       };
     } else {
       modal.querySelector('.modal-title').innerText = t('hints_title');
-      modal.querySelector('.modal-subtitle').innerText = t('hints_subtitle');
-      modal.querySelector('.hints-intro-note').innerText = t('hints_intro');
     }
 
     modal.classList.add('active');

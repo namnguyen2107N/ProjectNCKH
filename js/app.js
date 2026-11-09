@@ -740,7 +740,6 @@ class AppController {
         <!-- Mission Hub Hero Briefing Banner -->
         <div class="hub-hero">
           <div class="hub-hero-content">
-            <span class="hub-eyebrow">${t('hero_eyebrow')}</span>
             <h1 class="hub-title">${t('hero_title')}</h1>
             <p class="hub-subtitle">
               ${t('hub_greeting')}
@@ -762,7 +761,6 @@ class AppController {
         <section class="tasks-section" id="tasks-section">
           <div class="section-title-wrap">
             <h2 class="section-title">${t('hub_section_title')}</h2>
-            <p class="section-desc">${t('hub_section_desc')}</p>
           </div>
 
           <div class="tasks-grid">

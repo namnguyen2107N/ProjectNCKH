@@ -1321,30 +1321,50 @@ class TaskEngine {
           <div class="param-row">
             <label class="param-label" for="${s3.canEditSpeed ? 'param-speed-entry' : 'param-speed-display'}">
               <span>${t('s3_speed_label')}</span>
-              <span class="unit-tag">${task.speedUnit}</span>
             </label>
-            ${s3.canEditSpeed ? `
-              <input type="hidden" id="param-speed" value="${internalSpeed}" />
-              <input type="number" step="any" id="param-speed-entry" class="input-field" value="" placeholder="${t('s3_param_placeholder')}" />
-            ` : `
-              <input type="hidden" id="param-speed" value="${prefilledSpeed}" />
-              <div class="locked-field-badge" id="param-speed-display">${prefilledSpeed} ${task.speedUnit} (${t('s3_speed_locked')})</div>
-            `}
+            <div class="param-control-wrap">
+              ${s3.canEditSpeed ? `
+                <input type="hidden" id="param-speed" value="${internalSpeed}" />
+                <div class="input-with-unit">
+                  <input type="number" step="any" id="param-speed-entry" class="input-field" value="${internalSpeed}" placeholder="${t('s3_param_placeholder') || '...'}" />
+                  <span class="unit-tag">${task.speedUnit}</span>
+                </div>
+              ` : `
+                <input type="hidden" id="param-speed" value="${prefilledSpeed}" />
+                <div class="locked-field-badge" id="param-speed-display">
+                  <div class="locked-field-val">
+                    <strong>${prefilledSpeed}</strong>
+                    <span class="unit">${task.speedUnit}</span>
+                  </div>
+                  <span class="locked-field-status">${t('s3_speed_locked')}</span>
+                </div>
+              `}
+            </div>
           </div>
 
           <div class="param-row">
             <label class="param-label" for="${s3.canEditTime ? 'param-time-entry' : 'param-time-display'}">
               <span>${t('s3_time_label')}</span>
-              <span class="unit-tag">${task.timeUnit}</span>
             </label>
-            ${s3.canEditTime ? `
-              <input type="hidden" id="param-time" value="${internalTime}" />
-              <input type="number" step="any" id="param-time-entry" class="input-field" value="" placeholder="${t('s3_param_placeholder')}" />
-            ` : `
-              <input type="hidden" id="param-time" value="${prefilledTime}" />
-              <input type="number" step="any" id="param-time-display" class="input-field" value="" readonly aria-label="${t('s3_time_locked')}" style="background:#f1f5f9; cursor:not-allowed;" />
-              <small class="text-muted">${isVi && s3.noteVi ? s3.noteVi : (s3.noteEn || t('s3_time_flawed_note'))}</small>
-            `}
+            <div class="param-control-wrap">
+              ${s3.canEditTime ? `
+                <input type="hidden" id="param-time" value="${internalTime}" />
+                <div class="input-with-unit">
+                  <input type="number" step="any" id="param-time-entry" class="input-field" value="${internalTime}" placeholder="${t('s3_param_placeholder') || '...'}" />
+                  <span class="unit-tag">${task.timeUnit}</span>
+                </div>
+              ` : `
+                <input type="hidden" id="param-time" value="${prefilledTime}" />
+                <div class="locked-field-badge" id="param-time-display">
+                  <div class="locked-field-val">
+                    <strong>${prefilledTime}</strong>
+                    <span class="unit">${task.timeUnit}</span>
+                  </div>
+                  <span class="locked-field-status">${t('s3_time_locked')}</span>
+                </div>
+                ${s3.noteEn || (isVi && s3.noteVi) ? `<small class="text-muted">${isVi && s3.noteVi ? s3.noteVi : s3.noteEn}</small>` : ''}
+              `}
+            </div>
           </div>
         </div>
 
@@ -1402,10 +1422,20 @@ class TaskEngine {
     [document.getElementById('param-speed-entry'), document.getElementById('param-time-entry')]
       .filter(Boolean)
       .forEach(input => {
+        const handler = () => {
+          if (input.id === 'param-speed-entry') {
+            const hidden = document.getElementById('param-speed');
+            if (hidden) hidden.value = input.value;
+          } else if (input.id === 'param-time-entry') {
+            const hidden = document.getElementById('param-time');
+            if (hidden) hidden.value = input.value;
+          }
+          syncOpenTrackButton();
+        };
         if (typeof input.addEventListener === 'function') {
-          input.addEventListener('input', syncOpenTrackButton);
+          input.addEventListener('input', handler);
         } else {
-          input.oninput = syncOpenTrackButton;
+          input.oninput = handler;
         }
       });
     syncOpenTrackButton();
