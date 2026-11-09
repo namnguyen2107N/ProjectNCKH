@@ -58,8 +58,8 @@ window.Task2Fix = {
     proposedNoteVi: '📋 Phép đổi đơn vị: 1,2 km = 1200 m.',
     formulaOptions: [
       { id: 'f1', text: 'Time = 1200 ÷ 4  (t = s ÷ v)', formula: 't = s ÷ v', correct: true },
-      { id: 'f2', text: 'Time = 1200 × 4 = 4800 s  (t = s × v)', formula: 't = s × v', correct: false },
-      { id: 'f3', text: 'Time = 1200 - 4 = 1196 s  (t = s - v)', formula: 't = s - v', correct: false }
+      { id: 'f2', text: 'Time = 1200 × 4  (t = s × v)', formula: 't = s × v', correct: false },
+      { id: 'f3', text: 'Time = 1200 - 4  (t = s - v)', formula: 't = s - v', correct: false }
     ],
     calcPromptEn: 'Enter the calculated time in seconds (1200 ÷ 4):',
     calcPromptVi: 'Nhập thời gian tính bằng giây (1200 ÷ 4):',
@@ -76,9 +76,7 @@ window.Task2Fix = {
     defaultSpeed: 4,
     defaultTime: 240, // 240 seconds standardized trial run
     canEditSpeed: false,
-    canEditTime: false,
-    noteEn: 'Watch the track ruler carefully: observe where the robot stops and compare it with the 1200m destination marker.',
-    noteVi: 'Quan sát kỹ thước đo đường chạy: xem rô-bốt dừng lại ở mốc nào và đối chiếu với vạch đích 1200 m.'
+    canEditTime: false
   },
 
   // Step 4: Look Back
