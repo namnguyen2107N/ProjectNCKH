@@ -776,6 +776,18 @@
     0 20px 0 #312e81,
     0 32px 64px rgba(79, 70, 229, 0.22);
   box-sizing: border-box;
+  animation: grandSignboardDrop 0.65s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
+@keyframes grandSignboardDrop {
+  0% {
+    opacity: 0;
+    transform: translateY(-28px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* 4 Corner Tech Screws / Rivets */
@@ -921,6 +933,26 @@
   text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.25);
   transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
   user-select: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-start.grand-start-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 55%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: skewX(-25deg);
+  animation: grandBtnShimmer 3.2s infinite;
+  pointer-events: none;
+}
+
+@keyframes grandBtnShimmer {
+  0%, 65% { left: -120%; }
+  100% { left: 220%; }
 }
 
 .btn-start.grand-start-btn:hover {
@@ -990,6 +1022,11 @@
   background: #f8fafc;
   transform: translateY(-2px);
   box-shadow: 0 7px 0 #cbd5e1;
+}
+
+.lang-option:active {
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 #cbd5e1;
 }
 
 .lang-arrow {
@@ -1499,5 +1536,20 @@
   }
   .btn-welcome-action {
     text-align: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-signboard.grand-signboard,
+  .btn-start.grand-start-btn,
+  .btn-start.grand-start-btn::before,
+  .pixel-stars,
+  .splash-sun,
+  .arm-left.animate-wave-hand,
+  .floating-math-bubble,
+  .splash-flying-rocket,
+  .gear-wheel {
+    animation: none !important;
+    transition: none !important;
   }
 }
