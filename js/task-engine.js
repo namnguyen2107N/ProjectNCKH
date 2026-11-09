@@ -1362,7 +1362,6 @@ class TaskEngine {
                   </div>
                   <span class="locked-field-status">${t('s3_time_locked')}</span>
                 </div>
-                ${s3.noteEn || (isVi && s3.noteVi) ? `<small class="text-muted">${isVi && s3.noteVi ? s3.noteVi : s3.noteEn}</small>` : ''}
               `}
             </div>
           </div>
