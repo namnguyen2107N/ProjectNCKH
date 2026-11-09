@@ -55,7 +55,7 @@
       settings_done_btn: 'Done',
 
       // Welcome Hero & Robot Signboard
-      hero_eyebrow: 'MOTION MATH · VIRTUAL ROBOT',
+      hero_eyebrow: '',
       hero_title: 'Robot Math Lab',
       hero_subtitle: 'Virtual Robotics Math Learning Environment for Elementary Students.',
       signboard_badge: 'CONTROL PANEL',
@@ -75,7 +75,7 @@
 
       // Tasks Hub
       hub_section_title: 'Choose Your Mission',
-      hub_section_desc: 'Three short missions about speed, time, and distance.',
+      hub_section_desc: '',
 
       // Task 1 Card
       task1_badge: '🎯 Task 1',
@@ -247,7 +247,7 @@
       settings_done_btn: 'Xong, tiếp tục học',
 
       // Welcome Hero & Robot Signboard
-      hero_eyebrow: 'TOÁN CHUYỂN ĐỘNG · ROBOT ẢO',
+      hero_eyebrow: '',
       hero_title: 'Robot Math Lab',
       hero_subtitle: `Môi trường học tập Toán - Tiếng Anh qua mô phỏng Robotics dành cho học sinh tiểu học.`,
       signboard_badge: 'BẢNG ĐIỀU KHIỂN',
@@ -267,7 +267,7 @@
 
       // Tasks Hub
       hub_section_title: 'Chọn nhiệm vụ',
-      hub_section_desc: 'Ba nhiệm vụ ngắn về vận tốc, thời gian và quãng đường.',
+      hub_section_desc: '',
 
       // Task 1 Card
       task1_badge: '🎯 Nhiệm vụ 1',
